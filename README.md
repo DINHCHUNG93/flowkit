@@ -41,8 +41,8 @@ The Python agent manages projects, scenes, and a request queue — the extension
 Go to [labs.google/fx/tools/flow](https://labs.google/fx/tools/flow) and sign in. The extension captures your bearer token automatically.
 
 Check the extension popup — you should see:
-- ✅ Agent connected (once the agent is running)
-- 🔑 Token captured
+- Agent connected (once the agent is running)
+- Token captured
 
 ### 3. Start the Agent
 
@@ -72,21 +72,110 @@ curl http://127.0.0.1:8100/api/flow/status
 # {"connected":true,"flow_key_present":true}
 
 curl http://127.0.0.1:8100/api/flow/credits
-# {"credits":...,"userPaygateTier":"PAYGATE_TIER_TWO"}
+# {"credits":...,"userPaygateTier":"PAYGATE_TIER_ONE"}
 ```
 
 ## Usage
 
-### Option A: Direct API (for testing / one-off)
+### Option A: Full Pipeline (recommended)
+
+Create a project with story, characters, scenes — the agent handles Flow API integration, tier detection, and character profiles automatically.
 
 ```bash
-# Generate an image
+# 1. Create project with story and characters
+#    - Creates project on Google Flow (gets real projectId)
+#    - Auto-detects your paygate tier from credits API
+#    - Builds character profiles (description + image_prompt) from story
+curl -X POST http://127.0.0.1:8100/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Pipip Fish Market",
+    "description": "Pipip the cat selling fish, 3D style, VERTICAL",
+    "story": "Pipip is a cute orange tabby cat who runs a fish stall at a busy public market. Every morning he arrives at dawn carrying crates of fresh fish, sets up his colorful wooden stall, and charms customers with his playful personality.",
+    "characters": [
+      {
+        "name": "Pipip",
+        "description": "A cute orange tabby cat wearing a blue apron, fish seller at the public market"
+      }
+    ]
+  }'
+# → {"id": "flow-project-uuid", "story": "...", "user_paygate_tier": "PAYGATE_TIER_ONE", ...}
+
+# 2. Create a video
+curl -X POST http://127.0.0.1:8100/api/videos \
+  -H "Content-Type: application/json" \
+  -d '{"project_id": "<project_id>", "title": "Pipip Story"}'
+# → {"id": "vid-uuid", ...}
+
+# 3. Create scenes
+curl -X POST http://127.0.0.1:8100/api/scenes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_id": "<video_id>",
+    "display_order": 0,
+    "prompt": "Pipip arrives at the market at dawn with crates of fresh fish",
+    "image_prompt": "A cute orange tabby cat in blue apron at a market at sunrise, 3D Pixar-style",
+    "video_prompt": "A cute orange tabby cat arranging fish at his market stall, 3D animation",
+    "orientation": "VERTICAL",
+    "character_names": ["Pipip"]
+  }'
+
+# 4. Queue image generation (worker processes automatically)
+curl -X POST http://127.0.0.1:8100/api/requests \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "GENERATE_IMAGES",
+    "orientation": "VERTICAL",
+    "scene_id": "<scene_id>",
+    "project_id": "<project_id>",
+    "video_id": "<video_id>"
+  }'
+
+# 5. Once image is done, queue video generation
+curl -X POST http://127.0.0.1:8100/api/requests \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "GENERATE_VIDEO",
+    "orientation": "VERTICAL",
+    "scene_id": "<scene_id>",
+    "project_id": "<project_id>"
+  }'
+
+# 6. Check progress
+curl http://127.0.0.1:8100/api/requests/pending
+curl http://127.0.0.1:8100/api/requests?scene_id=<scene_id>
+
+# 7. Once video is done, queue upscale (optional)
+curl -X POST http://127.0.0.1:8100/api/requests \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "UPSCALE_VIDEO",
+    "orientation": "VERTICAL",
+    "scene_id": "<scene_id>"
+  }'
+```
+
+The worker automatically:
+- Picks up PENDING requests
+- **Skips already-COMPLETED assets** (no wasted API calls or reCAPTCHA solves)
+- Solves reCAPTCHA via extension (only for generate image/video/upscale)
+- Calls the correct Google Flow endpoint with the right model for your tier
+- Polls for async operations (video gen, upscale)
+- Updates scene status and media URLs
+- Retries on failure (up to 5 times)
+- Cascade-clears downstream assets on regeneration (regen image → resets video + upscale)
+
+### Option B: Direct API (for testing / one-off)
+
+```bash
+# Generate an image (with optional character reference for consistency)
 curl -X POST http://127.0.0.1:8100/api/flow/generate-image \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "A white Bichon Frise dog wearing a tiny business suit",
-    "project_id": "12345",
-    "aspect_ratio": "IMAGE_ASPECT_RATIO_PORTRAIT"
+    "prompt": "A cute orange tabby cat at a fish market, 3D style",
+    "project_id": "<project_id>",
+    "aspect_ratio": "IMAGE_ASPECT_RATIO_PORTRAIT",
+    "character_media_gen_ids": ["<character_media_gen_id>"]
   }'
 
 # Generate a video from an image
@@ -94,106 +183,25 @@ curl -X POST http://127.0.0.1:8100/api/flow/generate-video \
   -H "Content-Type: application/json" \
   -d '{
     "start_image_media_id": "<media_gen_id from image>",
-    "prompt": "The dog walks confidently through a shopping mall",
-    "project_id": "12345",
-    "scene_id": "scene-1"
+    "prompt": "The cat arranges fish at his stall",
+    "project_id": "<project_id>",
+    "scene_id": "<scene_id>",
+    "user_paygate_tier": "PAYGATE_TIER_ONE"
   }'
 
-# Check video generation status
+# Check video generation status (no reCAPTCHA required)
 curl -X POST http://127.0.0.1:8100/api/flow/check-status \
   -H "Content-Type: application/json" \
-  -d '{"operations": [{"name": "operations/xxx"}]}'
+  -d '{"operations": [<operations from generate-video response>]}'
 
 # Upscale a video to 4K
 curl -X POST http://127.0.0.1:8100/api/flow/upscale-video \
   -H "Content-Type: application/json" \
   -d '{
     "media_gen_id": "<video_media_gen_id>",
-    "scene_id": "scene-1"
+    "scene_id": "<scene_id>"
   }'
 ```
-
-### Option B: Queue-based (for production pipelines)
-
-Create a project with characters, scenes, and let the worker process everything automatically.
-
-```bash
-# 1. Create a project
-curl -X POST http://127.0.0.1:8100/api/projects \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Boss Babe Ep 5", "language": "en"}'
-# → {"id": "proj-uuid", ...}
-
-# 2. Create a character
-curl -X POST http://127.0.0.1:8100/api/characters \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Bijou", "description": "White Bichon Frise, tiny CEO in designer suit"}'
-# → {"id": "char-uuid", ...}
-
-# 3. Link character to project
-curl -X POST http://127.0.0.1:8100/api/projects/proj-uuid/characters/char-uuid
-
-# 4. Create a video
-curl -X POST http://127.0.0.1:8100/api/videos \
-  -H "Content-Type: application/json" \
-  -d '{"project_id": "proj-uuid", "title": "Episode 5"}'
-# → {"id": "vid-uuid", ...}
-
-# 5. Create scenes
-curl -X POST http://127.0.0.1:8100/api/scenes \
-  -H "Content-Type: application/json" \
-  -d '{
-    "video_id": "vid-uuid",
-    "display_order": 0,
-    "prompt": "Bijou enters a luxury mall flanked by two Doberman bodyguards",
-    "image_prompt": "A tiny white Bichon Frise CEO in a designer suit entering a luxury mall...",
-    "video_prompt": "The tiny CEO walks confidently through the mall entrance...",
-    "character_names": ["Bijou"]
-  }'
-# → {"id": "scene-uuid", ...}
-
-# 6. Queue image generation
-curl -X POST http://127.0.0.1:8100/api/requests \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "GENERATE_IMAGES",
-    "orientation": "VERTICAL",
-    "scene_id": "scene-uuid",
-    "project_id": "proj-uuid",
-    "video_id": "vid-uuid"
-  }'
-
-# 7. Check request status
-curl http://127.0.0.1:8100/api/requests/pending
-curl http://127.0.0.1:8100/api/requests?scene_id=scene-uuid
-
-# 8. Once image is done, queue video generation
-curl -X POST http://127.0.0.1:8100/api/requests \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "GENERATE_VIDEO",
-    "orientation": "VERTICAL",
-    "scene_id": "scene-uuid",
-    "project_id": "proj-uuid"
-  }'
-
-# 9. Once video is done, queue upscale
-curl -X POST http://127.0.0.1:8100/api/requests \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "UPSCALE_VIDEO",
-    "orientation": "VERTICAL",
-    "scene_id": "scene-uuid"
-  }'
-```
-
-The worker automatically:
-- Picks up PENDING requests
-- Solves reCAPTCHA via extension
-- Calls the correct Google Flow endpoint
-- Polls for async operations (video gen, upscale)
-- Updates scene status and media URLs
-- Retries on failure (up to 5 times)
 
 ## API Reference
 
@@ -209,7 +217,7 @@ The worker automatically:
 | `PATCH` | `/api/characters/:id` | Update character |
 | `DELETE` | `/api/characters/:id` | Delete character |
 | **Projects** | | |
-| `POST` | `/api/projects` | Create project |
+| `POST` | `/api/projects` | Create project (calls Flow API + auto-detects tier) |
 | `GET` | `/api/projects` | List projects |
 | `GET` | `/api/projects/:id` | Get project |
 | `PATCH` | `/api/projects/:id` | Update project |
@@ -237,20 +245,62 @@ The worker automatically:
 | `PATCH` | `/api/requests/:id` | Update request |
 | **Flow (Direct)** | | |
 | `GET` | `/api/flow/status` | Extension connection status |
-| `GET` | `/api/flow/credits` | Google Flow credits |
-| `POST` | `/api/flow/generate-image` | Generate image (sync) |
-| `POST` | `/api/flow/generate-video` | Submit video gen |
-| `POST` | `/api/flow/upscale-video` | Submit upscale |
-| `POST` | `/api/flow/check-status` | Poll operation status |
+| `GET` | `/api/flow/credits` | Google Flow credits + tier |
+| `POST` | `/api/flow/generate-image` | Generate image (sync, requires reCAPTCHA) |
+| `POST` | `/api/flow/generate-video` | Submit video gen (requires reCAPTCHA) |
+| `POST` | `/api/flow/generate-video-refs` | Submit r2v video gen (requires reCAPTCHA) |
+| `POST` | `/api/flow/upscale-video` | Submit upscale (requires reCAPTCHA) |
+| `POST` | `/api/flow/check-status` | Poll operation status (no reCAPTCHA) |
 
 ### Request Types
 
-| Type | Description | Async? |
-|------|-------------|--------|
-| `GENERATE_IMAGES` | Generate scene image | No — returns immediately |
-| `GENERATE_VIDEO` | Generate video from image | Yes — worker polls until done |
-| `UPSCALE_VIDEO` | Upscale video to 4K | Yes — worker polls until done |
-| `GENERATE_CHARACTER_IMAGE` | Generate character reference | No |
+| Type | Description | Async? | reCAPTCHA? |
+|------|-------------|--------|------------|
+| `GENERATE_IMAGES` | Generate scene image | No | Yes |
+| `GENERATE_VIDEO` | Generate video from image (i2v) | Yes | Yes |
+| `GENERATE_VIDEO_REFS` | Generate video from references (r2v) | Yes | Yes |
+| `UPSCALE_VIDEO` | Upscale video to 4K | Yes | Yes |
+| `GENERATE_CHARACTER_IMAGE` | Generate character reference | No | Yes |
+| `CHECK_STATUS` | Poll operation status | No | No |
+
+### Project Creation
+
+`POST /api/projects` now does three things:
+
+1. **Creates project on Google Flow** via tRPC API (`project.createProject`) — gets a real `projectId`
+2. **Auto-detects user tier** from `/flow/credits` — uses correct model keys (prevents 403 errors)
+3. **Creates characters with profiles** — builds `description` and `image_prompt` from the story context
+
+```json
+{
+  "name": "Project Name",
+  "description": "Short description",
+  "story": "Full narrative that drives character profiles and scene generation...",
+  "characters": [
+    {"name": "Pipip", "description": "A cute orange tabby cat wearing a blue apron"}
+  ]
+}
+```
+
+### Model Mappings
+
+Video and upscale model keys are stored in `agent/models.json` for easy updates when Google Flow changes models:
+
+```json
+{
+  "video_models": {
+    "PAYGATE_TIER_TWO": {
+      "frame_2_video": {
+        "VIDEO_ASPECT_RATIO_LANDSCAPE": "veo_3_1_i2v_s_fast_ultra",
+        "VIDEO_ASPECT_RATIO_PORTRAIT": "veo_3_1_i2v_s_fast_portrait_ultra"
+      }
+    },
+    "PAYGATE_TIER_ONE": { ... }
+  },
+  "upscale_models": { ... },
+  "image_models": { "default": "GEM_PIX_2" }
+}
+```
 
 ### Scene Fields
 
@@ -281,37 +331,39 @@ Set `parent_scene_id` and `chain_type: "CONTINUATION"` when creating the scene. 
 ```
 agent/
 ├── main.py              # FastAPI app + WebSocket server
-├── config.py            # All configuration
+├── config.py            # Configuration (loads models.json)
+├── models.json          # Video/upscale/image model mappings (editable)
 ├── db/
 │   ├── schema.py        # SQLite schema (aiosqlite)
 │   └── crud.py          # Async CRUD with column whitelisting
 ├── models/
 │   ├── enums.py         # Literal types for validation
-│   ├── character.py
-│   ├── project.py
+│   ├── character.py     # + image_prompt field
+│   ├── project.py       # + story, characters input
 │   ├── video.py
 │   ├── scene.py
 │   └── request.py
 ├── api/
 │   ├── characters.py    # REST routes
-│   ├── projects.py
+│   ├── projects.py      # Flow API integration + auto-tier + character profiles
 │   ├── videos.py
 │   ├── scenes.py
 │   ├── requests.py
 │   └── flow.py          # Direct Flow API access
 ├── services/
-│   ├── flow_client.py   # WS bridge to extension
+│   ├── flow_client.py   # WS bridge to extension + Flow tRPC
 │   ├── headers.py       # Randomized browser headers
 │   ├── scene_chain.py   # Continuation scene logic
 │   └── post_process.py  # ffmpeg trim/merge/music
 └── worker/
-    └── processor.py     # Background queue processor + status poller
+    └── processor.py     # Queue processor + skip-completed guard + poller
 
 extension/
-├── manifest.json        # Chrome MV3
-├── background.js        # WS client, token capture, API proxy
+├── manifest.json        # Chrome MV3 + declarativeNetRequest
+├── background.js        # WS client, token capture, API proxy, reCAPTCHA
 ├── content.js           # Bridge to injected.js
 ├── injected.js          # reCAPTCHA solver (MAIN world)
+├── rules.json           # Declarative net request rules
 ├── popup.html
 └── popup.js
 ```
@@ -322,21 +374,34 @@ extension/
 2. **Extension** connects to agent's WebSocket server (`ws://127.0.0.1:9222`)
 3. **Agent** receives API requests via REST or queue
 4. **Agent** sends commands to extension via WS: `{method: "api_request", params: {url, body, captchaAction}}`
-5. **Extension** solves reCAPTCHA, injects token into request body, makes API call from browser context
+5. **Extension** solves reCAPTCHA (only when `captchaAction` is present), injects token, makes API call
 6. **Extension** returns result to agent via WS
 7. **Worker** polls async operations (video gen, upscale) until completion
 8. **Agent** updates scene/request status in SQLite
 
+### reCAPTCHA Usage
+
+Only these operations require reCAPTCHA solving:
+- `generate_images` → `captchaAction: "IMAGE_GENERATION"`
+- `generate_video` → `captchaAction: "VIDEO_GENERATION"`
+- `generate_video_from_references` → `captchaAction: "VIDEO_GENERATION"`
+- `upscale_video` → `captchaAction: "VIDEO_GENERATION"`
+
+All other API calls (check status, get credits, upload image, create project) do **not** require reCAPTCHA.
+
 ### Google Flow API Endpoints
 
-| Operation | Endpoint |
-|-----------|----------|
-| Generate Image | `POST /v1/projects/{id}/flowMedia:batchGenerateImages` |
-| Generate Video | `POST /v1/video:batchAsyncGenerateVideoStartImage` |
-| Generate Video (chain) | `POST /v1/video:batchAsyncGenerateVideoStartAndEndImage` |
-| Upscale Video | `POST /v1/video:batchAsyncGenerateVideoUpsampleVideo` |
-| Check Status | `POST /v1/video:batchCheckAsyncVideoGenerationStatus` |
-| Get Credits | `GET /v1/credits` |
+| Operation | Endpoint | reCAPTCHA |
+|-----------|----------|-----------|
+| Create Project | `POST labs.google/fx/api/trpc/project.createProject` | No |
+| Generate Image | `POST /v1/projects/{id}/flowMedia:batchGenerateImages` | Yes |
+| Generate Video | `POST /v1/video:batchAsyncGenerateVideoStartImage` | Yes |
+| Generate Video (chain) | `POST /v1/video:batchAsyncGenerateVideoStartAndEndImage` | Yes |
+| Generate Video (r2v) | `POST /v1/video:batchAsyncGenerateVideoReferenceImages` | Yes |
+| Upscale Video | `POST /v1/video:batchAsyncGenerateVideoUpsampleVideo` | Yes |
+| Check Status | `POST /v1/video:batchCheckAsyncVideoGenerationStatus` | No |
+| Get Credits | `GET /v1/credits` | No |
+| Upload Image | `POST /v1:uploadUserImage` | No |
 
 ## Configuration
 
@@ -380,9 +445,10 @@ All ffmpeg outputs use `-movflags +faststart` for streaming compatibility.
 | Extension shows "No token" | Open [labs.google/fx/tools/flow](https://labs.google/fx/tools/flow) and do any action |
 | `CAPTCHA_FAILED: NO_FLOW_TAB` | Need a Google Flow tab open in Chrome |
 | `CAPTCHA_FAILED: grecaptcha not available` | Wait for the Flow page to fully load |
-| API returns 403 | reCAPTCHA token expired or invalid — will auto-retry |
+| API returns 403 MODEL_ACCESS_DENIED | Tier mismatch — auto-detect should handle this, or set `user_paygate_tier` manually |
 | API returns 429 | Rate limited — wait and retry |
 | Video gen stuck in PROCESSING | Check `/api/requests?status=PROCESSING` — worker polls automatically |
+| Duplicate generation requests | Worker skips already-COMPLETED assets automatically |
 
 ## License
 
