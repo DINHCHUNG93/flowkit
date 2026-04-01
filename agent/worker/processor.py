@@ -470,7 +470,14 @@ async def _handle_generate_character_image(client, req: dict) -> dict:
 # ─── Scene Update ────────────────────────────────────────────
 
 async def _update_scene_from_result(req: dict, orientation: str, media_gen_id: str, output_url: str):
-    """Update scene fields based on completed request."""
+    """Update scene fields based on completed request.
+
+    CRITICAL: When regenerating, must cascade-clear downstream data.
+    Otherwise the system silently uses stale media_gen_ids:
+      - Regen image → old video/upscale media_gen_ids still point to OLD image's derivatives
+      - Regen video → old upscale media_gen_id still points to OLD video
+    This causes silent failures where everything looks "complete" but uses wrong assets.
+    """
     scene_id = req.get("scene_id")
     if not scene_id:
         return
@@ -480,14 +487,34 @@ async def _update_scene_from_result(req: dict, orientation: str, media_gen_id: s
     updates = {}
 
     if req_type == "GENERATE_IMAGES":
+        # Set new image data
         updates[f"{prefix}_image_media_gen_id"] = media_gen_id
         updates[f"{prefix}_image_url"] = output_url
         updates[f"{prefix}_image_status"] = "COMPLETED"
+
+        # CASCADE: Clear downstream video + upscale (they depend on this image)
+        updates[f"{prefix}_video_media_gen_id"] = None
+        updates[f"{prefix}_video_url"] = None
+        updates[f"{prefix}_video_status"] = "PENDING"
+        updates[f"{prefix}_upscale_media_gen_id"] = None
+        updates[f"{prefix}_upscale_url"] = None
+        updates[f"{prefix}_upscale_status"] = "PENDING"
+        logger.info("Cascade clear: %s video + upscale reset for scene %s (image regen)", prefix, scene_id[:8])
+
     elif req_type == "GENERATE_VIDEO":
+        # Set new video data
         updates[f"{prefix}_video_media_gen_id"] = media_gen_id
         updates[f"{prefix}_video_url"] = output_url
         updates[f"{prefix}_video_status"] = "COMPLETED"
+
+        # CASCADE: Clear downstream upscale (it depends on this video)
+        updates[f"{prefix}_upscale_media_gen_id"] = None
+        updates[f"{prefix}_upscale_url"] = None
+        updates[f"{prefix}_upscale_status"] = "PENDING"
+        logger.info("Cascade clear: %s upscale reset for scene %s (video regen)", prefix, scene_id[:8])
+
     elif req_type == "UPSCALE_VIDEO":
+        # Terminal — no downstream to clear
         updates[f"{prefix}_upscale_media_gen_id"] = media_gen_id
         updates[f"{prefix}_upscale_url"] = output_url
         updates[f"{prefix}_upscale_status"] = "COMPLETED"
