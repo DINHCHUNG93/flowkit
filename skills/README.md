@@ -76,7 +76,7 @@ curl -X POST http://127.0.0.1:8100/api/projects \
     "name": "Luna the Space Cat",
     "story": "Luna is a small white cat astronaut who lands on a candy planet. She discovers a chocolate river and plants a flag on a gummy bear mountain.",
     "characters": [
-      {"name": "Luna", "entity_type": "character", "description": "Small white cat with big blue eyes, wearing a tiny orange space suit with round glass helmet. Fluffy tail. Pixar-style 3D."},
+      {"name": "Luna", "entity_type": "character", "description": "Small white cat with big blue eyes, wearing a tiny orange space suit with round glass helmet. Fluffy tail. Pixar-style 3D.", "voice_description": "Soft curious childlike voice full of wonder, with a slight purring undertone"},
       {"name": "Candy Planet Surface", "entity_type": "location", "description": "Alien planet surface made of colorful hard candies, lollipop trees, cotton candy clouds, pastel pink and purple sky. Pixar-style 3D."},
       {"name": "Chocolate River", "entity_type": "location", "description": "Wide flowing river of dark melted chocolate with marshmallow rocks along banks, steam rising. Pixar-style 3D."},
       {"name": "Gummy Bear Mountain", "entity_type": "location", "description": "Tall mountain made of giant translucent gummy bears stacked together, glowing from inside, rainbow colors. Pixar-style 3D."}
@@ -91,16 +91,35 @@ curl -X POST http://127.0.0.1:8100/api/videos \
 # → video_id: "v-xxx"
 
 # Create 3 scenes
+# Scene 1: prompt (image) + video_prompt (8s sub-clip with camera + dialogue)
 curl -X POST http://127.0.0.1:8100/api/scenes -H "Content-Type: application/json" \
-  -d '{"video_id": "v-xxx", "display_order": 0, "prompt": "Luna steps out of a small rocket onto Candy Planet Surface. First footprint in candy dust. Wide shot, dramatic landing. Pixar 3D, cinematic.", "character_names": ["Luna", "Candy Planet Surface"], "chain_type": "ROOT"}'
+  -d '{
+    "video_id": "v-xxx", "display_order": 0,
+    "prompt": "Luna steps out of a small rocket onto Candy Planet Surface. First footprint in candy dust. Wide shot, dramatic landing. Pixar 3D.",
+    "video_prompt": "0-3s: Wide crane down shot, Luna emerges from rocket hatch onto Candy Planet Surface. Luna gasps \"Wow!\" 3-6s: Low angle tracking shot, Luna takes first steps on candy ground, looking around in wonder. Luna says \"Everything is made of candy!\" 6-8s: Wide establishing shot, Luna small in frame against vast Candy Planet Surface landscape, cotton candy clouds. Silence, gentle wind.",
+    "character_names": ["Luna", "Candy Planet Surface"],
+    "chain_type": "ROOT"
+  }'
 # → scene_id: "s-1"
 
 curl -X POST http://127.0.0.1:8100/api/scenes -H "Content-Type: application/json" \
-  -d '{"video_id": "v-xxx", "display_order": 1, "prompt": "Luna kneels at the edge of Chocolate River on Candy Planet Surface, dipping a paw in. Surprised, licking the paw. Warm lighting reflected off chocolate. Pixar 3D.", "character_names": ["Luna", "Candy Planet Surface", "Chocolate River"], "chain_type": "CONTINUATION", "parent_scene_id": "s-1"}'
+  -d '{
+    "video_id": "v-xxx", "display_order": 1,
+    "prompt": "Luna kneels at the edge of Chocolate River on Candy Planet Surface, dipping a paw in. Surprised expression. Warm lighting. Pixar 3D.",
+    "video_prompt": "0-3s: Over-the-shoulder shot, Luna kneels at Chocolate River edge on Candy Planet Surface, steam rising. Luna asks \"What is this?\" 3-5s: Close-up Luna paw dipping into chocolate, slow motion. Luna tastes it, eyes widen. Luna says \"It is chocolate! Real chocolate!\" 5-8s: Medium shot, Luna jumps up with arms raised, Chocolate River flowing behind. Luna shouts \"This is the best planet ever!\"",
+    "character_names": ["Luna", "Candy Planet Surface", "Chocolate River"],
+    "chain_type": "CONTINUATION", "parent_scene_id": "s-1"
+  }'
 # → scene_id: "s-2"
 
 curl -X POST http://127.0.0.1:8100/api/scenes -H "Content-Type: application/json" \
-  -d '{"video_id": "v-xxx", "display_order": 2, "prompt": "Luna plants a small flag on top of Gummy Bear Mountain, triumphant pose. Candy Planet Surface stretching to horizon below. Epic wide angle, sunset glow through gummy bears. Pixar 3D.", "character_names": ["Luna", "Candy Planet Surface", "Gummy Bear Mountain"], "chain_type": "CONTINUATION", "parent_scene_id": "s-2"}'
+  -d '{
+    "video_id": "v-xxx", "display_order": 2,
+    "prompt": "Luna plants a small flag on top of Gummy Bear Mountain. Candy Planet Surface below. Sunset glow through gummy bears. Pixar 3D.",
+    "video_prompt": "0-3s: Low angle push in, Luna climbs last steps of Gummy Bear Mountain, determination on face. 3-5s: Medium shot, Luna plants flag on summit, triumphant pose. Luna says \"I did it! Planet Candy is claimed!\" 5-8s: Epic crane up to wide bird eye view, Luna tiny on Gummy Bear Mountain peak, Candy Planet Surface stretching to horizon, golden sunset through translucent gummy bears. Silence, majestic.",
+    "character_names": ["Luna", "Candy Planet Surface", "Gummy Bear Mountain"],
+    "chain_type": "CONTINUATION", "parent_scene_id": "s-2"
+  }'
 # → scene_id: "s-3"
 ```
 

@@ -218,6 +218,31 @@ DON'T: "Pippip the chubby orange tabby cat wearing a blue apron juggling..."
 
 All `media_id` values are UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). Never the base64 `CAMS...` mediaGenerationId.
 
+### Two Prompts per Scene
+
+Each scene has **two separate prompts**:
+- `prompt` — describes the **still image** (frame 0): `"Luna steps out of rocket onto candy planet. Wide shot, sunrise."`
+- `video_prompt` — describes the **8s video motion** with sub-clip timing and camera directions:
+
+```
+0-3s: Wide crane down, Luna steps out of rocket onto Candy Planet Surface. Luna gasps "It's beautiful!"
+3-6s: Low angle tracking shot, Luna walks across candy ground, shallow DOF. Luna says "Everything is made of candy."
+6-8s: Close-up Luna's face, eyes wide with wonder, golden hour backlight. Silence, ambient wind.
+```
+
+### Character Voice
+
+Characters can have a `voice_description` (max ~30 words) for voice consistency:
+```json
+{"name": "Luna", "entity_type": "character", "description": "Small white cat...", "voice_description": "Soft curious childlike voice with wonder and slight purring"}
+```
+
+Voice descriptions are auto-appended to video prompts before generation.
+
+### No Background Music
+
+The worker auto-appends `"No background music. Keep only natural sound effects and ambient sounds."` to all video prompts. Sound effects from the scene (footsteps, splashing, wind) are preserved.
+
 ## Pipeline Overview
 
 ```
@@ -255,6 +280,12 @@ Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` 
 | `/gen-chain-videos` | Auto start+end frame chaining for smooth transitions (i2v_fl) |
 | `/insert-scene` | Multi-angle shots, cutaways, close-ups within a chain |
 | `/creative-mix` | Analyze story + suggest all techniques (chain, insert, r2v, parallel) |
+
+### Reference
+
+| Skill | Description |
+|-------|-------------|
+| `/camera-guide` | Camera angles, movements, lighting, DOF for cinematic video prompts |
 
 ### Utilities
 
@@ -312,6 +343,8 @@ Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` 
 - **Cascade clear** — regenerating image auto-resets downstream video + upscale
 - **Retry** — failed requests retry up to 5 times
 - **UUID enforcement** — extracts UUID from fifeUrl if response doesn't provide it directly
+- **Voice context** — auto-appends character `voice_description` to video prompts
+- **No background music** — auto-appends "no background music, keep sound effects" to all video prompts
 
 ## Configuration
 

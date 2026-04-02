@@ -40,9 +40,13 @@ Python agent manages data locally via SQLite and orchestrates everything.
 CREATE TABLE character (
     id                  TEXT PRIMARY KEY,
     name                TEXT NOT NULL,
+    entity_type         TEXT NOT NULL DEFAULT 'character'
+                        CHECK(entity_type IN ('character','location','creature','visual_asset','generic_troop','faction')),
     description         TEXT,
+    image_prompt        TEXT,
+    voice_description   TEXT,       -- max ~30 words, for video prompt voice consistency
     reference_image_url TEXT,
-    media_id        TEXT,
+    media_id            TEXT,       -- UUID format from uploadImage
     created_at          DATETIME DEFAULT (datetime('now')),
     updated_at          DATETIME DEFAULT (datetime('now'))
 );
@@ -100,8 +104,10 @@ CREATE TABLE scene (
     id                  TEXT PRIMARY KEY,
     video_id            TEXT NOT NULL REFERENCES video(id) ON DELETE CASCADE,
     display_order       INTEGER DEFAULT 0,
-    prompt              TEXT,
-    character_names     TEXT,
+    prompt              TEXT,           -- image generation prompt (frame 0)
+    image_prompt        TEXT,           -- override for image gen (optional)
+    video_prompt        TEXT,           -- sub-clip timing: "0-3s: ... 3-5s: ... 5-8s: ..."
+    character_names     TEXT,           -- JSON array of reference entity names
 
     -- Chain
     parent_scene_id     TEXT REFERENCES scene(id),
@@ -151,7 +157,7 @@ CREATE TABLE request (
     video_id        TEXT REFERENCES video(id),
     scene_id        TEXT REFERENCES scene(id),
     character_id    TEXT REFERENCES character(id),
-    type            TEXT NOT NULL CHECK(type IN ('GENERATE_IMAGES','GENERATE_VIDEO','UPSCALE_VIDEO','GENERATE_CHARACTER_IMAGE')),
+    type            TEXT NOT NULL CHECK(type IN ('GENERATE_IMAGES','GENERATE_VIDEO','GENERATE_VIDEO_REFS','UPSCALE_VIDEO','GENERATE_CHARACTER_IMAGE')),
     orientation     TEXT CHECK(orientation IN ('VERTICAL','HORIZONTAL')),
     status          TEXT DEFAULT 'PENDING' CHECK(status IN ('PENDING','PROCESSING','COMPLETED','FAILED')),
     request_id      TEXT,
