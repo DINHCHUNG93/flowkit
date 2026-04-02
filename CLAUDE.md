@@ -24,7 +24,7 @@ curl -s http://127.0.0.1:8100/health
 7. **Cascade on regen** — regenerating an image auto-clears downstream video + upscale. Regenerating video auto-clears upscale.
 8. **Video prompts use sub-clip timing** — structure 8s video as time segments. The scene image is frame 0. Each segment: `[camera] + [action] + [dialogue]`.
 9. **Use cinematic camera language** — each sub-clip specifies camera angle + movement + lighting. See `skills/camera-guide.md` for full reference. Follow the emotional arc: wide (opening) → medium+push in (rising) → close-up (peak) → pull back wide (release).
-10. **Character dialogue in sub-clips** — embed speech in quotes: `"0-3s: Medium tracking shot, Luna walks to bed. Luna says 'Bye mom, I love you, see you tomorrow.'"` Rules: max 10-15 words per 2-3s, one speaker per segment, use delivery verbs (says, whispers, shouts, gasps), silent segments are powerful.
+10. **Character dialogue in sub-clips** — embed speech in quotes: `"0-3s: Medium tracking shot, Luna walks to bed. Luna says 'Bye mom, I love you, see you tomorrow.'"` Rules: max 10-15 words per character per 2-3s, multi-character exchanges OK (label each speaker: `Luna asks "Ready?" Hero replies "Let's go."`), use delivery verbs (says, whispers, shouts, asks, replies), silent segments are powerful.
 11. **Voice descriptions on characters** — `voice_description` field (max ~30 words) auto-appended to video prompts. Dialogue tone must match voice profile.
 12. **No background music** — the worker auto-appends "No background music. Keep only natural sound effects." to all video prompts.
 

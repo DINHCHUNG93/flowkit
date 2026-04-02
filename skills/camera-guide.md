@@ -129,10 +129,26 @@ Embed dialogue in quotes within sub-clip segments. The AI generates lip-sync and
 ### Dialogue Rules
 
 1. **Match voice_description** — dialogue tone should align with the character's voice profile. If Luna has "soft gentle whisper", don't write her shouting aggressively.
-2. **Short lines** — max 10-15 words per 2-3s segment. AI needs time to animate lip-sync.
-3. **One speaker per segment** — don't put two characters talking in the same time block.
+2. **Short lines** — max 10-15 words per character per 2-3s segment. AI needs time to animate lip-sync.
+3. **Multi-character dialogue** — conversations are fine within one segment. Label each speaker clearly and keep exchanges short:
+   - `Luna says "What is that?" Hero replies "The ancient sword."` (2 speakers, ~3s)
+   - For longer exchanges, spread across segments with camera cuts between speakers
 4. **Silent segments are powerful** — not every segment needs dialogue. Use silence for atmosphere, reactions, and visual storytelling.
-5. **Action verbs for delivery** — use `says`, `whispers`, `shouts`, `gasps`, `laughs`, `mutters` to guide tone.
+5. **Action verbs for delivery** — use `says`, `whispers`, `shouts`, `gasps`, `laughs`, `mutters`, `replies`, `asks` to guide tone.
+
+### Multi-character Conversation Example
+```
+0-3s: Two-shot medium, Luna and Hero stand at Chocolate River. Luna asks "Should we cross it?" Hero looks down at the river.
+3-5s: Over-the-shoulder from Luna's side, Hero says "I'll go first." Hero steps toward the river edge.
+5-8s: Close-up Luna watching nervously. Luna whispers "Be careful." Hero wades in, chocolate splashing.
+```
+
+### Group Scene Example
+```
+0-3s: Wide shot, three characters around a campfire. Elder says "The mountain is dangerous." Mai replies "We don't have a choice."
+3-5s: Close-up Hero, firelight on face. Hero says "I'll go alone." Luna grabs his arm.
+5-8s: Medium shot, Luna shakes her head. Luna says "We go together, or not at all." Silence, crackling fire.
+```
 
 ## Common Mistakes
 
