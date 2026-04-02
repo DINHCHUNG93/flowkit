@@ -9,13 +9,21 @@ Workflow audit:
 - W11 (retry): on error, increment retry_count, re-queue as PENDING
 """
 import asyncio
+import base64
 import json
 import logging
+import re
+import ssl
+import time
+import aiohttp
 from agent.db import crud
 from agent.services.flow_client import get_flow_client
 from agent.config import POLL_INTERVAL, MAX_RETRIES, VIDEO_POLL_TIMEOUT, API_COOLDOWN
 
 logger = logging.getLogger(__name__)
+
+# retry_state[request_id] = (retry_count, retry_after_timestamp)
+_retry_state: dict[str, tuple[int, float]] = {}
 
 
 async def process_pending_requests():
@@ -125,6 +133,15 @@ async def _handle_failure(rid: str, req: dict, result: dict):
 
     retry = req.get("retry_count", 0) + 1
     if retry < MAX_RETRIES:
+        # Check backoff: skip re-queue if retry_after is still in the future
+        prev_count, retry_after = _retry_state.get(rid, (0, 0.0))
+        now = time.time()
+        if retry_after > now:
+            logger.debug("Request %s backoff active, %.0fs remaining", rid[:8], retry_after - now)
+            return
+        # Update backoff state: exponential backoff capped at 300s
+        retry_after = now + min(2 ** retry * 10, 300)
+        _retry_state[rid] = (retry, retry_after)
         # Back to PENDING for retry
         await crud.update_request(rid, status="PENDING", retry_count=retry, error_message=str(error_msg))
         logger.warning("Request %s failed (retry %d/%d): %s", rid[:8], retry, MAX_RETRIES, error_msg)
@@ -243,10 +260,10 @@ def _extract_media_id(result: dict, req_type: str) -> str:
                     if uuid_val:
                         logger.info("Extracted mediaId from %s: %s", url_field, uuid_val)
                         return uuid_val
-            # Last resort: return name even if not UUID (for logging)
+            # Last resort: log warning and return None (non-UUID values must not be stored)
             if name:
                 logger.warning("media[0].name is not UUID format: %s", name[:30])
-                return name
+            return None
 
     if req_type in ("GENERATE_VIDEO", "GENERATE_VIDEO_REFS", "UPSCALE_VIDEO"):
         ops = data.get("operations", [])
@@ -262,13 +279,14 @@ def _extract_media_id(result: dict, req_type: str) -> str:
                 uuid_val = _extract_uuid_from_url(fife)
                 if uuid_val:
                     return uuid_val
-            # Fallback
+            # Fallback: only return if it's a valid UUID
             for field in ("mediaId", "mediaGenerationId"):
                 val = video_meta.get(field, "")
-                if val:
+                if val and _is_uuid(val):
                     return val
+            return None
 
-    return ""
+    return None
 
 
 def _extract_output_url(result: dict, req_type: str) -> str:
@@ -468,19 +486,17 @@ async def _upload_character_image(client, char: dict, project_id: str) -> str | 
 
     Returns media.name (used as mediaId in video gen) or None on failure.
     """
-    import base64
-    import aiohttp
-
     ref_url = char.get("reference_image_url")
     if not ref_url:
         return None
 
     try:
-        # Download image (skip SSL verify — macOS Python often lacks root certs for GCS)
-        import ssl
-        ssl_ctx = ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
+        # Download image with proper SSL verification
+        try:
+            import certifi
+            ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+        except ImportError:
+            ssl_ctx = ssl.create_default_context()
         async with aiohttp.ClientSession() as session:
             async with session.get(ref_url, ssl=ssl_ctx) as resp:
                 if resp.status != 200:

@@ -11,7 +11,7 @@ class GenerateImageRequest(BaseModel):
     prompt: str
     project_id: str
     aspect_ratio: str = "IMAGE_ASPECT_RATIO_PORTRAIT"
-    user_paygate_tier: str = "PAYGATE_TIER_TWO"
+    user_paygate_tier: str = "PAYGATE_TIER_ONE"
     character_media_ids: Optional[list[str]] = None
 
 
@@ -22,7 +22,7 @@ class GenerateVideoRequest(BaseModel):
     scene_id: str
     aspect_ratio: str = "VIDEO_ASPECT_RATIO_PORTRAIT"
     end_image_media_id: Optional[str] = None
-    user_paygate_tier: str = "PAYGATE_TIER_TWO"
+    user_paygate_tier: str = "PAYGATE_TIER_ONE"
 
 
 class GenerateVideoRefsRequest(BaseModel):
@@ -31,7 +31,7 @@ class GenerateVideoRefsRequest(BaseModel):
     project_id: str
     scene_id: str
     aspect_ratio: str = "VIDEO_ASPECT_RATIO_PORTRAIT"
-    user_paygate_tier: str = "PAYGATE_TIER_TWO"
+    user_paygate_tier: str = "PAYGATE_TIER_ONE"
 
 
 class UpscaleVideoRequest(BaseModel):

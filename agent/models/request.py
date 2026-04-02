@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional
 from agent.models.enums import RequestType, Orientation
 
@@ -10,6 +10,23 @@ class RequestCreate(BaseModel):
     character_id: Optional[str] = None
     project_id: Optional[str] = None
     video_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_required_fields(self) -> "RequestCreate":
+        req_type = self.type
+        if req_type == "GENERATE_CHARACTER_IMAGE":
+            if not self.character_id:
+                raise ValueError("character_id is required for GENERATE_CHARACTER_IMAGE")
+            if not self.project_id:
+                raise ValueError("project_id is required for GENERATE_CHARACTER_IMAGE")
+        elif req_type in ("GENERATE_IMAGES", "GENERATE_VIDEO", "GENERATE_VIDEO_REFS", "UPSCALE_VIDEO"):
+            if not self.scene_id:
+                raise ValueError(f"scene_id is required for {req_type}")
+            if not self.project_id:
+                raise ValueError(f"project_id is required for {req_type}")
+            if not self.video_id:
+                raise ValueError(f"video_id is required for {req_type}")
+        return self
 
 
 class Request(BaseModel):

@@ -17,8 +17,8 @@ WS_PORT = int(os.environ.get("WS_PORT", "9222"))
 
 # ─── Google Flow API ────────────────────────────────────────
 GOOGLE_FLOW_API = "https://aisandbox-pa.googleapis.com"
-GOOGLE_API_KEY = "AIzaSyBtrm0o5ab1c-Ec8ZuLcGt3oJAA5VWt3pY"
-RECAPTCHA_SITE_KEY = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV"
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "AIzaSyBtrm0o5ab1c-Ec8ZuLcGt3oJAA5VWt3pY")
+RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV")
 
 # ─── Worker ──────────────────────────────────────────────────
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
@@ -69,19 +69,9 @@ CHROME_VERSIONS = [
 ]
 
 BROWSER_VALIDATIONS = [
-    "qSH0RgPhYS+tEktJTy2ahvLDO9s=",
-    "rTK1ShQiZT+uFlkKUz3bivMEP0t=",
-    "sUL2TiRjAU+vGmlLV04cjwNFQ1u=",
-    "tVM3UjSkBV+wHnmMW15dkxOGR2v=",
-    "uWN4VkTlCW+xIonNX26elySHS3w=",
-    "vXO5WlUmDX+yJpoOY37fmzPIT4x=",
+    "SgDQo8mvrGRdD61Pwo8wyWVgYgs=",
 ]
 
 CLIENT_DATA = [
-    "CMXbygE=",
-    "CNYcywE=",
-    "CObdzAE=",
-    "CPheywE=",
-    "CQjfzQE=",
-    "CRkgzRE=",
+    "CKi1yQEIh7bJAQiktskBCKmdygEIvorLAQiUocsBCIagzQEYv6nKARjRp88BGKqwzwE=",
 ]

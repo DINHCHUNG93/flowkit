@@ -6,6 +6,7 @@
  */
 
 const AGENT_WS_URL = 'ws://127.0.0.1:9222';
+// NOTE: This is a browser-restricted public API key — safe to ship in extension bundles.
 const API_KEY = 'AIzaSyBtrm0o5ab1c-Ec8ZuLcGt3oJAA5VWt3pY';
 
 let ws = null;
@@ -220,6 +221,11 @@ async function handleApiRequest(msg) {
 
   if (!url) {
     sendToAgent({ id, error: 'MISSING_URL' });
+    return;
+  }
+
+  if (!url.startsWith('https://aisandbox-pa.googleapis.com/')) {
+    sendToAgent({ id, error: 'INVALID_URL' });
     return;
   }
 

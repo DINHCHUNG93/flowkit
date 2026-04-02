@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent.config import API_HOST, API_PORT, WS_HOST, WS_PORT
-from agent.db.schema import init_db
+from agent.db.schema import init_db, close_db
 from agent.api.characters import router as characters_router
 from agent.api.projects import router as projects_router
 from agent.api.videos import router as videos_router
@@ -70,6 +70,7 @@ async def lifespan(app: FastAPI):
 
     ws_task.cancel()
     worker_task.cancel()
+    await close_db()
     logger.info("Google Flow Agent stopped")
 
 

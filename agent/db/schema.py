@@ -1,9 +1,13 @@
 """SQLite schema — async via aiosqlite."""
+import asyncio
 import aiosqlite
 import logging
 from agent.config import DB_PATH
 
 logger = logging.getLogger(__name__)
+
+_db_connection: aiosqlite.Connection | None = None
+_db_lock = asyncio.Lock()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS character (
@@ -27,7 +31,7 @@ CREATE TABLE IF NOT EXISTS project (
     thumbnail_url TEXT,
     language    TEXT NOT NULL DEFAULT 'en',
     status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','ARCHIVED','DELETED')),
-    user_paygate_tier TEXT NOT NULL DEFAULT 'PAYGATE_TIER_TWO',
+    user_paygate_tier TEXT NOT NULL DEFAULT 'PAYGATE_TIER_ONE',
     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -131,18 +135,36 @@ CREATE INDEX IF NOT EXISTS idx_video_project ON video(project_id);
 
 
 async def init_db():
-    """Initialize database with schema."""
+    """Initialize database with schema and run migrations."""
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute("PRAGMA journal_mode=WAL")
         await db.execute("PRAGMA foreign_keys=ON")
         await db.executescript(SCHEMA)
+        # Migration: add voice_description if missing (added after initial schema)
+        cursor = await db.execute("PRAGMA table_info(character)")
+        columns = {row[1] for row in await cursor.fetchall()}
+        if "voice_description" not in columns:
+            await db.execute("ALTER TABLE character ADD COLUMN voice_description TEXT DEFAULT ''")
+            logger.info("Migrated: added voice_description column to character table")
         await db.commit()
     logger.info("Database initialized at %s", DB_PATH)
 
 
 async def get_db() -> aiosqlite.Connection:
-    """Get a new async database connection."""
-    db = await aiosqlite.connect(str(DB_PATH))
-    db.row_factory = aiosqlite.Row
-    await db.execute("PRAGMA foreign_keys=ON")
-    return db
+    """Return the shared database connection, creating it if needed."""
+    global _db_connection
+    if _db_connection is None:
+        _db_connection = await aiosqlite.connect(str(DB_PATH))
+        _db_connection.row_factory = aiosqlite.Row
+        await _db_connection.execute("PRAGMA journal_mode=WAL")
+        await _db_connection.execute("PRAGMA foreign_keys=ON")
+    return _db_connection
+
+
+async def close_db() -> None:
+    """Close the shared database connection."""
+    global _db_connection
+    if _db_connection is not None:
+        await _db_connection.close()
+        _db_connection = None
+        logger.info("Database connection closed")

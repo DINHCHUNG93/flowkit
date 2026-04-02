@@ -14,13 +14,27 @@ function refresh() {
     tokenEl.textContent = data.flowKeyPresent ? `🔑 Token captured (${age})` : '❌ No token — open Flow tab';
 
     const m = data.metrics || {};
-    statsEl.innerHTML = `
-      <div class="stat"><span class="label">State</span><span class="value">${data.state}</span></div>
-      <div class="stat"><span class="label">Requests</span><span class="value">${m.requestCount || 0}</span></div>
-      <div class="stat"><span class="label">Success</span><span class="value">${m.successCount || 0}</span></div>
-      <div class="stat"><span class="label">Failed</span><span class="value">${m.failedCount || 0}</span></div>
-      <div class="stat"><span class="label">Last error</span><span class="value">${m.lastError || '—'}</span></div>
-    `;
+    const stats = [
+      ['State', data.state],
+      ['Requests', m.requestCount || 0],
+      ['Success', m.successCount || 0],
+      ['Failed', m.failedCount || 0],
+      ['Last error', m.lastError || '—'],
+    ];
+    statsEl.textContent = '';
+    for (const [label, value] of stats) {
+      const div = document.createElement('div');
+      div.className = 'stat';
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'label';
+      labelSpan.textContent = label;
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'value';
+      valueSpan.textContent = value;
+      div.appendChild(labelSpan);
+      div.appendChild(valueSpan);
+      statsEl.appendChild(div);
+    }
   });
 }
 

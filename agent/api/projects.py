@@ -93,6 +93,14 @@ async def create(body: ProjectCreate):
     if not client.connected:
         raise HTTPException(503, "Extension not connected — cannot create project on Google Flow")
 
+    # Validate characters before any API calls to avoid orphan projects
+    characters_input_raw = body.model_dump(exclude_none=True).get("characters")
+    if characters_input_raw:
+        names = [c["name"] for c in characters_input_raw]
+        if len(names) != len(set(names)):
+            dupes = [n for n in names if names.count(n) > 1]
+            raise HTTPException(400, f"Duplicate character names: {list(set(dupes))}")
+
     # Auto-detect tier if not explicitly set (default was TIER_TWO which may be wrong)
     detected_tier = await _detect_user_tier(client)
 
@@ -120,20 +128,32 @@ async def create(body: ProjectCreate):
     project = await crud.create_project(**create_data)
 
     # Step 3: Create reference entities (characters, locations, assets) with profiles
-    if characters_input and body.story:
+    if characters_input:
         for char_input in characters_input:
             etype = char_input.get("entity_type", "character")
-            profile = _build_character_profile(
-                char_input["name"],
-                char_input.get("description"),
-                body.story,
-                entity_type=etype,
-            )
+            if body.story:
+                profile = _build_character_profile(
+                    char_input["name"],
+                    char_input.get("description"),
+                    body.story,
+                    entity_type=etype,
+                )
+                description = profile["description"]
+                image_prompt = profile["image_prompt"]
+            else:
+                description = char_input.get("description") or char_input["name"]
+                composition = COMPOSITION_GUIDELINES.get(etype, COMPOSITION_GUIDELINES["character"])
+                image_prompt = (
+                    f"Reference image of {description}. "
+                    f"3D animated style, Pixar-quality rendering. "
+                    f"{composition} "
+                    f"Studio lighting, highly detailed"
+                )
             char = await crud.create_character(
                 name=char_input["name"],
                 entity_type=etype,
-                description=profile["description"],
-                image_prompt=profile["image_prompt"],
+                description=description,
+                image_prompt=image_prompt,
                 voice_description=char_input.get("voice_description"),
             )
             await crud.link_character_to_project(flow_project_id, char["id"])

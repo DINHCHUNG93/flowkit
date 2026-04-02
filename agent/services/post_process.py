@@ -28,19 +28,23 @@ def trim_video(input_path: str, output_path: str, start: float, end: float) -> b
 def merge_videos(video_paths: list[str], output_path: str) -> bool:
     """Concatenate videos using ffmpeg concat demuxer."""
     concat_file = output_path + ".concat.txt"
-    with open(concat_file, "w") as f:
-        for p in video_paths:
-            f.write(f"file '{p}'\n")
+    try:
+        with open(concat_file, "w") as f:
+            for p in video_paths:
+                # Escape single quotes to prevent path injection in concat file
+                escaped = str(p).replace("'", "'\\''")
+                f.write(f"file '{escaped}'\n")
 
-    cmd = [
-        "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-        "-i", concat_file,
-        "-c:v", "copy", "-c:a", "copy",
-        "-movflags", "+faststart",
-        output_path,
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    Path(concat_file).unlink(missing_ok=True)
+        cmd = [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+            "-i", concat_file,
+            "-c:v", "copy", "-c:a", "copy",
+            "-movflags", "+faststart",
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    finally:
+        Path(concat_file).unlink(missing_ok=True)
     if result.returncode != 0:
         logger.error("Merge failed: %s", result.stderr[-200:])
         return False

@@ -80,7 +80,12 @@ class FlowClient:
             return
 
     async def _send(self, method: str, params: dict, timeout: float = 300) -> dict:
-        """Send request to extension and wait for response."""
+        """Send request to extension and wait for response.
+
+        Always returns a dict. On error, returns {"error": "<reason>"} — callers
+        must check result.get("error") or use _is_ws_error() before reading data.
+        Never raises; exceptions are caught and returned as error dicts.
+        """
         if not self._extension_ws:
             return {"error": "Extension not connected"}
 
@@ -161,7 +166,7 @@ class FlowClient:
         request_item = {
             "clientContext": {**ctx, "sessionId": f";{ts}"},
             "seed": ts % 1000000,
-            "prompt": prompt,
+            "structuredPrompt": {"parts": [{"text": prompt}]},
             "imageAspectRatio": aspect_ratio,
             "imageModelName": "GEM_PIX_2",
         }
@@ -173,10 +178,14 @@ class FlowClient:
                 for mid in character_media_ids
             ]
 
+        batch_id = f"{uuid.uuid4()}" if character_media_ids else None
         body = {
             "clientContext": ctx,
             "requests": [request_item],
         }
+        if batch_id:
+            body["mediaGenerationContext"] = {"batchId": batch_id}
+            body["useNewMedia"] = True
 
         url = self._build_url("generate_images", project_id=project_id)
         return await self._send("api_request", {

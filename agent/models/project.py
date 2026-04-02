@@ -39,6 +39,6 @@ class Project(BaseModel):
     thumbnail_url: Optional[str] = None
     language: str = "en"
     status: str = "ACTIVE"
-    user_paygate_tier: str = "PAYGATE_TIER_TWO"
+    user_paygate_tier: str = "PAYGATE_TIER_ONE"
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
