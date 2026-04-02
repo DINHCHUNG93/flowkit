@@ -26,7 +26,7 @@ class CharacterUpdate(BaseModel):
 class Character(BaseModel):
     id: str
     name: str
-    entity_type: str = "character"
+    entity_type: EntityType = "character"
     description: Optional[str] = None
     image_prompt: Optional[str] = None
     reference_image_url: Optional[str] = None
