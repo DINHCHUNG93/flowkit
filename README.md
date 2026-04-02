@@ -28,6 +28,162 @@ curl http://127.0.0.1:8100/health
 # {"status":"ok","extension_connected":true}
 ```
 
+## End-to-End Example: "Pippip the Fish Merchant"
+
+A chubby cat sells fish at a market. 3 scenes, vertical, Pixar 3D style.
+
+### Step 1: Create project with reference entities
+
+```bash
+curl -X POST http://127.0.0.1:8100/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Pippip the Fish Merchant",
+    "story": "Pippip is a chubby orange tabby cat who sells fish at a Southeast Asian open market. Scene 1: Morning setup. Scene 2: First customer. Scene 3: Eating the last fish at sunset.",
+    "characters": [
+      {"name": "Pippip", "entity_type": "character", "description": "Chubby orange tabby cat with big green eyes, blue apron, straw hat. Walks upright. Pixar-style 3D."},
+      {"name": "Fish Stall", "entity_type": "location", "description": "Small rustic wooden market stall with thatched bamboo roof, crushed ice display, hanging brass scale."},
+      {"name": "Open Market", "entity_type": "location", "description": "Bustling Southeast Asian open-air market with colorful awnings, hanging lanterns, stone walkway."},
+      {"name": "Golden Fish", "entity_type": "visual_asset", "description": "Magnificent golden koi fish with shimmering iridescent scales, elegant fins, slight magical glow."}
+    ]
+  }'
+# → {"id": "abc-123", "user_paygate_tier": "PAYGATE_TIER_ONE", ...}
+# Save project_id: abc-123
+```
+
+### Step 2: Create video + scenes
+
+```bash
+# Create video
+curl -X POST http://127.0.0.1:8100/api/videos \
+  -H "Content-Type: application/json" \
+  -d '{"project_id": "abc-123", "title": "Pippip Episode 1"}'
+# → {"id": "vid-456", ...}
+
+# Scene 1 (ROOT) — references: Pippip + Fish Stall + Open Market
+curl -X POST http://127.0.0.1:8100/api/scenes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_id": "vid-456",
+    "display_order": 0,
+    "prompt": "Pippip stands behind Fish Stall, arranging fresh fish on the ice display. Early sunrise, golden light streaming down the Open Market corridor. Pixar-style 3D, cinematic lighting.",
+    "character_names": ["Pippip", "Fish Stall", "Open Market"],
+    "chain_type": "ROOT"
+  }'
+# → {"id": "scene-1", ...}
+
+# Scene 2 (CONTINUATION) — add Golden Fish reference
+curl -X POST http://127.0.0.1:8100/api/scenes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_id": "vid-456",
+    "display_order": 1,
+    "prompt": "Pippip leans over Fish Stall counter, staring intensely at Golden Fish sitting alone on the empty ice display. Drooling, wide eyes. Dramatic spotlight on Golden Fish, Open Market darkened behind. Pixar-style 3D, comedic tension.",
+    "character_names": ["Pippip", "Fish Stall", "Golden Fish", "Open Market"],
+    "chain_type": "CONTINUATION",
+    "parent_scene_id": "scene-1"
+  }'
+# → {"id": "scene-2", ...}
+
+# Scene 3 (CONTINUATION)
+curl -X POST http://127.0.0.1:8100/api/scenes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_id": "vid-456",
+    "display_order": 2,
+    "prompt": "Pippip sits contentedly on a stool behind Fish Stall, eyes closed in bliss, eating Golden Fish with chopsticks. SOLD OUT sign hanging. Open Market at sunset, warm orange glow. Pixar-style 3D, cozy ending.",
+    "character_names": ["Pippip", "Fish Stall", "Golden Fish", "Open Market"],
+    "chain_type": "CONTINUATION",
+    "parent_scene_id": "scene-2"
+  }'
+# → {"id": "scene-3", ...}
+```
+
+### Step 3: Generate reference images (one at a time)
+
+```bash
+# Get entity IDs
+curl -s http://127.0.0.1:8100/api/projects/abc-123/characters
+# → [{id: "char-pippip", name: "Pippip"}, {id: "char-stall", name: "Fish Stall"}, ...]
+
+# Generate each reference image (wait between each — 10s cooldown auto-applied)
+curl -X POST http://127.0.0.1:8100/api/requests \
+  -H "Content-Type: application/json" \
+  -d '{"type": "GENERATE_CHARACTER_IMAGE", "character_id": "char-pippip", "project_id": "abc-123"}'
+
+# Poll until COMPLETED
+curl -s http://127.0.0.1:8100/api/requests/<request_id>
+# → {"status": "COMPLETED", "media_id": "uuid-...", ...}
+
+# Repeat for Fish Stall, Open Market, Golden Fish...
+# Characters → portrait, Locations → landscape (auto-detected from entity_type)
+
+# Verify ALL have UUID media_id
+curl -s http://127.0.0.1:8100/api/projects/abc-123/characters
+# Every entity must show media_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+### Step 4: Generate scene images
+
+```bash
+# Only proceed after ALL references have media_id!
+# The worker will BLOCK if any referenced entity is missing media_id.
+
+curl -X POST http://127.0.0.1:8100/api/requests \
+  -H "Content-Type: application/json" \
+  -d '{"type": "GENERATE_IMAGES", "scene_id": "scene-1", "project_id": "abc-123", "video_id": "vid-456", "orientation": "VERTICAL"}'
+
+# Poll until COMPLETED, then do scene-2, scene-3...
+
+# Verify
+curl -s "http://127.0.0.1:8100/api/scenes?video_id=vid-456"
+# All scenes should have vertical_image_status: "COMPLETED"
+```
+
+### Step 5: Generate videos
+
+```bash
+curl -X POST http://127.0.0.1:8100/api/requests \
+  -H "Content-Type: application/json" \
+  -d '{"type": "GENERATE_VIDEO", "scene_id": "scene-1", "project_id": "abc-123", "video_id": "vid-456", "orientation": "VERTICAL"}'
+
+# Video gen takes 2-5 minutes. Poll every 15s:
+curl -s http://127.0.0.1:8100/api/requests/<request_id>
+# → {"status": "COMPLETED", "media_id": "uuid-...", ...}
+
+# Repeat for scene-2, scene-3...
+# CONTINUATION scenes auto-use endImage for smooth transitions
+```
+
+### Step 6: Download + concat
+
+```bash
+# Get video URLs
+curl -s "http://127.0.0.1:8100/api/scenes?video_id=vid-456"
+# → Each scene has vertical_video_url: "https://storage.googleapis.com/..."
+
+# Download
+curl -L -o scene_1.mp4 "<vertical_video_url_1>"
+curl -L -o scene_2.mp4 "<vertical_video_url_2>"
+curl -L -o scene_3.mp4 "<vertical_video_url_3>"
+
+# Normalize (same codec/resolution/fps)
+for i in 1 2 3; do
+  ffmpeg -y -i scene_$i.mp4 \
+    -c:v libx264 -preset fast -crf 18 \
+    -vf "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2" \
+    -r 24 -pix_fmt yuv420p -an scene_${i}_norm.mp4
+done
+
+# Concat
+printf "file 'scene_1_norm.mp4'\nfile 'scene_2_norm.mp4'\nfile 'scene_3_norm.mp4'" > concat.txt
+ffmpeg -y -f concat -safe 0 -i concat.txt -c copy -movflags +faststart pippip_final.mp4
+
+# Result: pippip_final.mp4 (720x1280, ~24s, 3 scenes)
+```
+
+---
+
 ## Core Concepts
 
 ### Reference Image System
@@ -46,16 +202,15 @@ Every visual element that should stay consistent gets a **reference image** — 
 Scene prompts describe **what happens**, not character appearance. The reference images maintain visual consistency.
 
 ```
-"Pippip juggling fish at Fish Stall, crowd watching in Open Market"
-                  ↓
-NOT: "Pippip the chubby orange tabby cat wearing a blue apron juggling..."
+DO:   "Pippip juggling fish at Fish Stall, crowd watching in Open Market"
+DON'T: "Pippip the chubby orange tabby cat wearing a blue apron juggling..."
 ```
 
 ### Media ID = UUID
 
 All `media_id` values are UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). Never the base64 `CAMS...` mediaGenerationId.
 
-## Pipeline
+## Pipeline Overview
 
 ```
 1. Create project      POST /api/projects (with entities + story)
@@ -69,23 +224,6 @@ All `media_id` values are UUID format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). 
    → Wait ALL complete (2-5 min each)
 7. (Optional) Upscale  POST /api/requests {type: UPSCALE_VIDEO} (TIER_TWO only)
 8. Download + concat   ffmpeg normalize + concat
-```
-
-### Example: Create Project with References
-
-```bash
-curl -X POST http://127.0.0.1:8100/api/projects \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Pippip the Fish Merchant",
-    "story": "Pippip is a chubby orange tabby cat who sells fish at a market...",
-    "characters": [
-      {"name": "Pippip", "entity_type": "character", "description": "Chubby orange tabby cat with blue apron and straw hat"},
-      {"name": "Fish Stall", "entity_type": "location", "description": "Small wooden market stall with thatched roof"},
-      {"name": "Open Market", "entity_type": "location", "description": "Southeast Asian open-air morning market"},
-      {"name": "Golden Fish", "entity_type": "visual_asset", "description": "Magnificent golden koi with shimmering scales"}
-    ]
-  }'
 ```
 
 ## Skills (AI Agent Workflows)
