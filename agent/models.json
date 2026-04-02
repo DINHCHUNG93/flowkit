@@ -34,6 +34,7 @@
     "VIDEO_RESOLUTION_1080P": "veo_3_1_upsampler_1080p"
   },
   "image_models": {
-    "default": "GEM_PIX_2"
+    "NANO_BANANA_PRO": "GEM_PIX_2",
+    "NANO_BANANA_2": "NARWHAL"
   }
 }

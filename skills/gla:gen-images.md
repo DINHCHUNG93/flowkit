@@ -27,7 +27,7 @@ For each scene needing an image:
 ```bash
 curl -X POST http://127.0.0.1:8100/api/requests \
   -H "Content-Type: application/json" \
-  -d '{"type": "GENERATE_IMAGES", "scene_id": "<SID>", "project_id": "<PID>", "video_id": "<VID>", "orientation": "VERTICAL"}'
+  -d '{"type": "GENERATE_IMAGE", "scene_id": "<SID>", "project_id": "<PID>", "video_id": "<VID>", "orientation": "VERTICAL"}'
 ```
 
 Poll every 10s until `COMPLETED` or `FAILED`. Max wait: 120s per scene.

@@ -157,7 +157,7 @@ CREATE TABLE request (
     video_id        TEXT REFERENCES video(id),
     scene_id        TEXT REFERENCES scene(id),
     character_id    TEXT REFERENCES character(id),
-    type            TEXT NOT NULL CHECK(type IN ('GENERATE_IMAGES','GENERATE_VIDEO','GENERATE_VIDEO_REFS','UPSCALE_VIDEO','GENERATE_CHARACTER_IMAGE')),
+    type            TEXT NOT NULL CHECK(type IN ('GENERATE_IMAGE','GENERATE_VIDEO','GENERATE_VIDEO_REFS','UPSCALE_VIDEO','GENERATE_CHARACTER_IMAGE')),
     orientation     TEXT CHECK(orientation IN ('VERTICAL','HORIZONTAL')),
     status          TEXT DEFAULT 'PENDING' CHECK(status IN ('PENDING','PROCESSING','COMPLETED','FAILED')),
     request_id      TEXT,

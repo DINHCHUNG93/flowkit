@@ -176,7 +176,7 @@ curl -X POST http://127.0.0.1:8100/api/requests \
 
 # Step 4: Generate scene images
 curl -X POST http://127.0.0.1:8100/api/requests \
-  -d '{"type": "GENERATE_IMAGES", "scene_id": "<SID>", "project_id": "<PID>", "video_id": "<VID>", "orientation": "VERTICAL"}'
+  -d '{"type": "GENERATE_IMAGE", "scene_id": "<SID>", "project_id": "<PID>", "video_id": "<VID>", "orientation": "VERTICAL"}'
 # Worker blocks if any ref is missing media_id
 
 # Step 5: Generate videos (2-5 min each)
@@ -251,7 +251,7 @@ The worker auto-appends `"No background music. Keep only natural sound effects a
 3. Create scenes       POST /api/scenes (chain_type: ROOT → CONTINUATION)
 4. Gen ref images      POST /api/requests {type: GENERATE_CHARACTER_IMAGE} per entity
    → Wait ALL complete, verify all have UUID media_id
-5. Gen scene images    POST /api/requests {type: GENERATE_IMAGES} per scene
+5. Gen scene images    POST /api/requests {type: GENERATE_IMAGE} per scene
    → Wait ALL complete
 6. Gen videos          POST /api/requests {type: GENERATE_VIDEO} per scene
    → Wait ALL complete (2-5 min each)
@@ -330,7 +330,7 @@ Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` 
 | Type | Required Fields | Async? | reCAPTCHA? |
 |------|----------------|--------|------------|
 | `GENERATE_CHARACTER_IMAGE` | character_id, project_id | No | Yes |
-| `GENERATE_IMAGES` | scene_id, project_id, video_id, orientation | No | Yes |
+| `GENERATE_IMAGE` | scene_id, project_id, video_id, orientation | No | Yes |
 | `GENERATE_VIDEO` | scene_id, project_id, video_id, orientation | Yes | Yes |
 | `GENERATE_VIDEO_REFS` | scene_id, project_id, video_id, orientation | Yes | Yes |
 | `UPSCALE_VIDEO` | scene_id, project_id, video_id, orientation | Yes | Yes |

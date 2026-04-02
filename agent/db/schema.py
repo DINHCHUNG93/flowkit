@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS request (
     video_id      TEXT REFERENCES video(id) ON DELETE CASCADE,
     scene_id      TEXT REFERENCES scene(id) ON DELETE CASCADE,
     character_id  TEXT REFERENCES character(id) ON DELETE CASCADE,
-    type          TEXT NOT NULL CHECK(type IN ('GENERATE_IMAGES','GENERATE_VIDEO','GENERATE_VIDEO_REFS','UPSCALE_VIDEO','GENERATE_CHARACTER_IMAGE')),
+    type          TEXT NOT NULL CHECK(type IN ('GENERATE_IMAGE','GENERATE_VIDEO','GENERATE_VIDEO_REFS','UPSCALE_VIDEO','GENERATE_CHARACTER_IMAGE','EDIT_IMAGE')),
     orientation   TEXT CHECK(orientation IN ('VERTICAL','HORIZONTAL')),
     status        TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING','PROCESSING','COMPLETED','FAILED')),
     request_id    TEXT,   -- external operation ID
@@ -122,6 +122,8 @@ CREATE TABLE IF NOT EXISTS request (
     output_url    TEXT,
     error_message TEXT,
     retry_count   INTEGER NOT NULL DEFAULT 0,
+    edit_prompt   TEXT,    -- prompt for EDIT_IMAGE requests
+    source_media_id TEXT,  -- source image media_id for EDIT_IMAGE requests
     created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -146,6 +148,50 @@ async def init_db():
         if "voice_description" not in columns:
             await db.execute("ALTER TABLE character ADD COLUMN voice_description TEXT DEFAULT ''")
             logger.info("Migrated: added voice_description column to character table")
+        # Migration: add edit_prompt and source_media_id to request table
+        cursor = await db.execute("PRAGMA table_info(request)")
+        req_columns = {row[1] for row in await cursor.fetchall()}
+        if "edit_prompt" not in req_columns:
+            await db.execute("ALTER TABLE request ADD COLUMN edit_prompt TEXT")
+            logger.info("Migrated: added edit_prompt column to request table")
+        if "source_media_id" not in req_columns:
+            await db.execute("ALTER TABLE request ADD COLUMN source_media_id TEXT")
+            logger.info("Migrated: added source_media_id column to request table")
+        # Migration: rename GENERATE_IMAGES -> GENERATE_IMAGE in request table
+        # SQLite can't alter CHECK constraints, so recreate the table
+        cursor = await db.execute("SELECT sql FROM sqlite_master WHERE name='request' AND type='table'")
+        row = await cursor.fetchone()
+        if row and 'GENERATE_IMAGES' in row[0] and 'GENERATE_IMAGE,' not in row[0]:
+            await db.execute("PRAGMA foreign_keys=OFF")
+            await db.execute("ALTER TABLE request RENAME TO _request_old")
+            await db.executescript("""
+CREATE TABLE IF NOT EXISTS request (
+    id            TEXT PRIMARY KEY,
+    project_id    TEXT REFERENCES project(id) ON DELETE CASCADE,
+    video_id      TEXT REFERENCES video(id) ON DELETE CASCADE,
+    scene_id      TEXT REFERENCES scene(id) ON DELETE CASCADE,
+    character_id  TEXT REFERENCES character(id) ON DELETE CASCADE,
+    type          TEXT NOT NULL CHECK(type IN ('GENERATE_IMAGE','GENERATE_VIDEO','GENERATE_VIDEO_REFS','UPSCALE_VIDEO','GENERATE_CHARACTER_IMAGE','EDIT_IMAGE')),
+    orientation   TEXT CHECK(orientation IN ('VERTICAL','HORIZONTAL')),
+    status        TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING','PROCESSING','COMPLETED','FAILED')),
+    request_id    TEXT,
+    media_id      TEXT,
+    output_url    TEXT,
+    error_message TEXT,
+    retry_count   INTEGER NOT NULL DEFAULT 0,
+    edit_prompt   TEXT,
+    source_media_id TEXT,
+    created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_request_status ON request(status);
+CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
+""")
+            await db.execute("INSERT OR IGNORE INTO request SELECT * FROM _request_old")
+            await db.execute("UPDATE request SET type='GENERATE_IMAGE' WHERE type='GENERATE_IMAGES'")
+            await db.execute("DROP TABLE _request_old")
+            await db.execute("PRAGMA foreign_keys=ON")
+            logger.info("Migrated: renamed GENERATE_IMAGES -> GENERATE_IMAGE in request table")
         await db.commit()
     logger.info("Database initialized at %s", DB_PATH)
 

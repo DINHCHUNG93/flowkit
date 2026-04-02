@@ -151,7 +151,7 @@ Only after ALL reference images are ready.
 curl -X POST http://127.0.0.1:8100/api/requests \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "GENERATE_IMAGES",
+    "type": "GENERATE_IMAGE",
     "scene_id": "<SID>",
     "project_id": "<PID>",
     "video_id": "<VID>",
@@ -243,7 +243,7 @@ ffmpeg -y -f concat -safe 0 -i concat.txt -c copy -movflags +faststart output.mp
 4. Create scenes         POST /api/scenes (with character_names, chain_type)
 5. Gen ref images        POST /api/requests {type: GENERATE_CHARACTER_IMAGE} per entity
    ↳ Wait ALL complete, verify all have media_id (UUID)
-6. Gen scene images      POST /api/requests {type: GENERATE_IMAGES} per scene
+6. Gen scene images      POST /api/requests {type: GENERATE_IMAGE} per scene
    ↳ Wait ALL complete, verify vertical_image_media_id (UUID)
 7. Gen videos            POST /api/requests {type: GENERATE_VIDEO} per scene
    ↳ Wait ALL complete (2-5 min each)
@@ -285,7 +285,7 @@ ffmpeg -y -f concat -safe 0 -i concat.txt -c copy -movflags +faststart output.mp
 | type | Required fields | What it does |
 |------|----------------|-------------|
 | `GENERATE_CHARACTER_IMAGE` | `character_id`, `project_id` | Gen ref image → upload → UUID media_id |
-| `GENERATE_IMAGES` | `scene_id`, `project_id`, `video_id`, `orientation` | Gen scene image with ref imageInputs |
+| `GENERATE_IMAGE` | `scene_id`, `project_id`, `video_id`, `orientation` | Gen scene image with ref imageInputs |
 | `GENERATE_VIDEO` | `scene_id`, `project_id`, `video_id`, `orientation` | Gen video from scene image (i2v) |
 | `GENERATE_VIDEO_REFS` | `scene_id`, `project_id`, `video_id`, `orientation` | Gen video from ref images only (r2v) |
 | `UPSCALE_VIDEO` | `scene_id`, `project_id`, `video_id`, `orientation` | Upscale video to 4K |

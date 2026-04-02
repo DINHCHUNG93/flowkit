@@ -81,14 +81,14 @@ async def _process_one(client, req: dict):
     await crud.update_request(rid, status="PROCESSING")
 
     # Anti-spam: cooldown before API calls (gen image, video, upscale)
-    api_call_types = {"GENERATE_IMAGES", "GENERATE_VIDEO", "GENERATE_VIDEO_REFS",
-                      "UPSCALE_VIDEO", "GENERATE_CHARACTER_IMAGE"}
+    api_call_types = {"GENERATE_IMAGE", "GENERATE_VIDEO", "GENERATE_VIDEO_REFS",
+                      "UPSCALE_VIDEO", "GENERATE_CHARACTER_IMAGE", "EDIT_IMAGE"}
     if req_type in api_call_types and API_COOLDOWN > 0:
         logger.debug("Cooldown %ds before %s", API_COOLDOWN, req_type)
         await asyncio.sleep(API_COOLDOWN)
 
     try:
-        if req_type == "GENERATE_IMAGES":
+        if req_type == "GENERATE_IMAGE":
             result = await _handle_generate_image(client, req, orientation)
         elif req_type == "GENERATE_VIDEO":
             result = await _handle_generate_video(client, req, orientation)
@@ -98,6 +98,8 @@ async def _process_one(client, req: dict):
             result = await _handle_upscale_video(client, req, orientation)
         elif req_type == "GENERATE_CHARACTER_IMAGE":
             result = await _handle_generate_character_image(client, req)
+        elif req_type == "EDIT_IMAGE":
+            result = await _handle_edit_image(client, req, orientation)
         else:
             result = {"error": f"Unknown request type: {req_type}"}
 
@@ -161,7 +163,7 @@ async def _mark_scene_failed(req: dict):
     prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
     req_type = req["type"]
     updates = {}
-    if req_type == "GENERATE_IMAGES":
+    if req_type in ("GENERATE_IMAGE", "EDIT_IMAGE"):
         updates[f"{prefix}_image_status"] = "FAILED"
     elif req_type in ("GENERATE_VIDEO", "GENERATE_VIDEO_REFS"):
         updates[f"{prefix}_video_status"] = "FAILED"
@@ -188,7 +190,7 @@ async def _is_already_completed(req: dict, orientation: str) -> bool:
 
     prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
 
-    if req_type == "GENERATE_IMAGES":
+    if req_type in ("GENERATE_IMAGE", "EDIT_IMAGE"):
         return scene.get(f"{prefix}_image_status") == "COMPLETED"
     elif req_type in ("GENERATE_VIDEO", "GENERATE_VIDEO_REFS"):
         return scene.get(f"{prefix}_video_status") == "COMPLETED"
@@ -237,7 +239,7 @@ def _extract_media_id(result: dict, req_type: str) -> str:
     """
     data = result.get("data", result)
 
-    if req_type == "GENERATE_IMAGES":
+    if req_type in ("GENERATE_IMAGE", "EDIT_IMAGE"):
         # batchGenerateImages → media[].name should be UUID
         media = data.get("media", [])
         if media:
@@ -246,12 +248,11 @@ def _extract_media_id(result: dict, req_type: str) -> str:
             name = item.get("name", "")
             if name and _is_uuid(name):
                 return name
-            # Try generatedImage fields
+            # Try generatedImage.mediaId (never use mediaGenerationId — it's CAMS base64)
             gen = item.get("image", {}).get("generatedImage", {})
-            for field in ("mediaId", "mediaGenerationId"):
-                val = gen.get(field, "")
-                if val and _is_uuid(val):
-                    return val
+            val = gen.get("mediaId", "")
+            if val and _is_uuid(val):
+                return val
             # Fallback: extract UUID from fifeUrl/imageUri
             for url_field in ("fifeUrl", "imageUri"):
                 url = gen.get(url_field, "")
@@ -279,11 +280,10 @@ def _extract_media_id(result: dict, req_type: str) -> str:
                 uuid_val = _extract_uuid_from_url(fife)
                 if uuid_val:
                     return uuid_val
-            # Fallback: only return if it's a valid UUID
-            for field in ("mediaId", "mediaGenerationId"):
-                val = video_meta.get(field, "")
-                if val and _is_uuid(val):
-                    return val
+            # Fallback: try mediaId only (never use mediaGenerationId — it's CAMS base64)
+            val = video_meta.get("mediaId", "")
+            if val and _is_uuid(val):
+                return val
             return None
 
     return None
@@ -292,7 +292,7 @@ def _extract_media_id(result: dict, req_type: str) -> str:
 def _extract_output_url(result: dict, req_type: str) -> str:
     data = result.get("data", result)
 
-    if req_type == "GENERATE_IMAGES":
+    if req_type in ("GENERATE_IMAGE", "EDIT_IMAGE"):
         media = data.get("media", [])
         if media:
             gen = media[0].get("image", {}).get("generatedImage", {})
@@ -478,6 +478,36 @@ async def _handle_generate_image(client, req: dict, orientation: str) -> dict:
     return await client.generate_images(
         prompt=prompt, project_id=pid, aspect_ratio=aspect,
         user_paygate_tier=tier, character_media_ids=char_media_ids,
+    )
+
+
+async def _handle_edit_image(client, req: dict, orientation: str) -> dict:
+    """Edit an existing scene image using IMAGE_INPUT_TYPE_BASE_IMAGE."""
+    scene = await crud.get_scene(req["scene_id"]) if req.get("scene_id") else None
+    if not scene:
+        return {"error": "Scene not found"}
+
+    project = await crud.get_project(req["project_id"]) if req.get("project_id") else None
+    aspect = "IMAGE_ASPECT_RATIO_PORTRAIT" if orientation == "VERTICAL" else "IMAGE_ASPECT_RATIO_LANDSCAPE"
+    tier = project.get("user_paygate_tier", "PAYGATE_TIER_ONE") if project else "PAYGATE_TIER_ONE"
+    pid = req.get("project_id", "0")
+
+    # Get the source image media_id (the image to edit)
+    source_media_id = req.get("source_media_id")
+    if not source_media_id:
+        # Default to the scene's current image
+        orient_prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
+        source_media_id = scene.get(f"{orient_prefix}_image_media_id")
+    if not source_media_id:
+        return {"error": "No source image to edit — generate a scene image first"}
+
+    # Edit prompt from request, fallback to scene prompt
+    edit_prompt = req.get("edit_prompt") or scene.get("prompt", "")
+
+    return await client.edit_image(
+        prompt=edit_prompt, source_media_id=source_media_id,
+        project_id=pid, aspect_ratio=aspect,
+        user_paygate_tier=tier,
     )
 
 
@@ -830,11 +860,11 @@ async def _handle_generate_character_image(client, req: dict) -> dict:
     )
 
     if not _is_error(result):
-        output_url = _extract_output_url(result, "GENERATE_IMAGES")
+        output_url = _extract_output_url(result, "GENERATE_IMAGE")
 
         if output_url:
             # Try to get UUID directly from generation response (avoids duplicate upload)
-            direct_mid = _extract_media_id(result, "GENERATE_IMAGES")
+            direct_mid = _extract_media_id(result, "GENERATE_IMAGE")
             if direct_mid and _is_uuid(direct_mid):
                 await crud.update_character(char["id"], media_id=direct_mid, reference_image_url=output_url)
                 logger.info("%s '%s' ref image ready (no upload needed, %s): media_id=%s",
@@ -885,7 +915,7 @@ async def _update_scene_from_result(req: dict, orientation: str, media_id: str, 
     req_type = req["type"]
     updates = {}
 
-    if req_type == "GENERATE_IMAGES":
+    if req_type == "GENERATE_IMAGE":
         # Set new image data
         updates[f"{prefix}_image_media_id"] = media_id
         updates[f"{prefix}_image_url"] = output_url

@@ -10,6 +10,8 @@ class RequestCreate(BaseModel):
     character_id: Optional[str] = None
     project_id: Optional[str] = None
     video_id: Optional[str] = None
+    edit_prompt: Optional[str] = None
+    source_media_id: Optional[str] = None
 
     @model_validator(mode="after")
     def check_required_fields(self) -> "RequestCreate":
@@ -19,7 +21,7 @@ class RequestCreate(BaseModel):
                 raise ValueError("character_id is required for GENERATE_CHARACTER_IMAGE")
             if not self.project_id:
                 raise ValueError("project_id is required for GENERATE_CHARACTER_IMAGE")
-        elif req_type in ("GENERATE_IMAGES", "GENERATE_VIDEO", "GENERATE_VIDEO_REFS", "UPSCALE_VIDEO"):
+        elif req_type in ("GENERATE_IMAGE", "GENERATE_VIDEO", "GENERATE_VIDEO_REFS", "UPSCALE_VIDEO", "EDIT_IMAGE"):
             if not self.scene_id:
                 raise ValueError(f"scene_id is required for {req_type}")
             if not self.project_id:
@@ -43,5 +45,7 @@ class Request(BaseModel):
     output_url: Optional[str] = None
     error_message: Optional[str] = None
     retry_count: int = 0
+    edit_prompt: Optional[str] = None
+    source_media_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

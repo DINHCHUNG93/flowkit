@@ -13,7 +13,7 @@ from typing import Optional
 
 from agent.config import (
     GOOGLE_FLOW_API, GOOGLE_API_KEY, ENDPOINTS,
-    VIDEO_MODELS, UPSCALE_MODELS, VIDEO_POLL_TIMEOUT,
+    VIDEO_MODELS, UPSCALE_MODELS, IMAGE_MODELS, VIDEO_POLL_TIMEOUT,
 )
 from agent.services.headers import random_headers
 
@@ -168,7 +168,7 @@ class FlowClient:
             "seed": ts % 1000000,
             "structuredPrompt": {"parts": [{"text": prompt}]},
             "imageAspectRatio": aspect_ratio,
-            "imageModelName": "GEM_PIX_2",
+            "imageModelName": IMAGE_MODELS["NANO_BANANA_PRO"],
         }
 
         # Add character references if provided (edit_image flow)
@@ -186,6 +186,41 @@ class FlowClient:
         if batch_id:
             body["mediaGenerationContext"] = {"batchId": batch_id}
             body["useNewMedia"] = True
+
+        url = self._build_url("generate_images", project_id=project_id)
+        return await self._send("api_request", {
+            "url": url,
+            "method": "POST",
+            "headers": random_headers(),
+            "body": body,
+            "captchaAction": "IMAGE_GENERATION",
+        })
+
+    async def edit_image(self, prompt: str, source_media_id: str,
+                          project_id: str,
+                          aspect_ratio: str = "IMAGE_ASPECT_RATIO_PORTRAIT",
+                          user_paygate_tier: str = "PAYGATE_TIER_ONE") -> dict:
+        """Edit an existing image using IMAGE_INPUT_TYPE_BASE_IMAGE."""
+        ts = int(time.time() * 1000)
+        ctx = self._client_context(project_id, user_paygate_tier)
+
+        request_item = {
+            "clientContext": {**ctx, "sessionId": f";{ts}"},
+            "seed": ts % 1000000,
+            "structuredPrompt": {"parts": [{"text": prompt}]},
+            "imageAspectRatio": aspect_ratio,
+            "imageModelName": IMAGE_MODELS["NANO_BANANA_PRO"],
+            "imageInputs": [
+                {"name": source_media_id, "imageInputType": "IMAGE_INPUT_TYPE_BASE_IMAGE"}
+            ],
+        }
+
+        body = {
+            "clientContext": ctx,
+            "mediaGenerationContext": {"batchId": f"{uuid.uuid4()}"},
+            "useNewMedia": True,
+            "requests": [request_item],
+        }
 
         url = self._build_url("generate_images", project_id=project_id)
         return await self._send("api_request", {

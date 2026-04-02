@@ -45,6 +45,14 @@ class CheckStatusRequest(BaseModel):
     operations: list[dict]
 
 
+class EditImageRequest(BaseModel):
+    prompt: str
+    source_media_id: str
+    project_id: str
+    aspect_ratio: str = "IMAGE_ASPECT_RATIO_PORTRAIT"
+    user_paygate_tier: str = "PAYGATE_TIER_ONE"
+
+
 @router.get("/status")
 async def extension_status():
     """Check if extension is connected."""
@@ -124,4 +132,20 @@ async def check_status(body: CheckStatusRequest):
     result = await client.check_video_status(body.operations)
     if result.get("error"):
         raise HTTPException(502, result["error"])
+    return result.get("data", result)
+
+
+@router.post("/edit-image")
+async def edit_image(body: EditImageRequest):
+    """Edit an existing image using IMAGE_INPUT_TYPE_BASE_IMAGE (bypasses queue)."""
+    client = get_flow_client()
+    if not client.connected:
+        raise HTTPException(503, "Extension not connected")
+    result = await client.edit_image(
+        body.prompt, body.source_media_id, body.project_id,
+        aspect_ratio=body.aspect_ratio,
+        user_paygate_tier=body.user_paygate_tier,
+    )
+    if result.get("error") or (isinstance(result.get("status"), int) and result["status"] >= 400):
+        raise HTTPException(result.get("status", 502), result.get("error", result.get("data")))
     return result.get("data", result)
