@@ -4,13 +4,17 @@ Thin dispatcher: picks up PENDING requests, delegates to OperationService
 for actual API work, handles status transitions + retry + scene updates.
 """
 import asyncio
+import base64
 import json
 import logging
+import re
 import time
+
+import aiohttp
 
 from agent.db import crud
 from agent.services.flow_client import get_flow_client
-from agent.config import POLL_INTERVAL, MAX_RETRIES, API_COOLDOWN
+from agent.config import POLL_INTERVAL, MAX_RETRIES, API_COOLDOWN, MAX_CONCURRENT_REQUESTS
 from agent.worker._parsing import _is_error
 from agent.sdk.services.result_handler import parse_result, apply_scene_result, apply_character_result
 
@@ -36,7 +40,7 @@ async def process_pending_requests():
                 continue
             for req in await crud.list_pending_requests():
                 rid = req["id"]
-                if rid not in active:
+                if rid not in active and len(active) < MAX_CONCURRENT_REQUESTS:
                     active.add(rid)
                     asyncio.create_task(_tracked(req, active))
         except Exception as e:
@@ -140,6 +144,70 @@ async def _dispatch(req: dict, orientation: str) -> dict:
     return {"error": f"Unknown request type: {req_type}"}
 
 
+async def _reupload_media(url: str, project_id: str) -> str | None:
+    """Download image from URL and re-upload to get a fresh media_id."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status != 200:
+                    logger.warning("Re-upload: failed to download %s (status %d)", url[:60], resp.status)
+                    return None
+                image_bytes = await resp.read()
+                content_type = resp.headers.get("Content-Type", "image/jpeg")
+
+        image_b64 = base64.b64encode(image_bytes).decode()
+        mime = content_type.split(";")[0].strip()
+
+        client = get_flow_client()
+        result = await client.upload_image(image_b64, mime_type=mime, project_id=project_id)
+        new_mid = result.get("_mediaId")
+        if new_mid:
+            logger.info("Re-upload OK: fresh media_id=%s", new_mid[:20])
+            return new_mid
+        logger.warning("Re-upload: no media_id in response: %s", str(result)[:200])
+    except Exception as e:
+        logger.warning("Re-upload failed: %s", e)
+    return None
+
+
+async def _recover_entity_not_found(req: dict) -> bool:
+    """When Google returns 'entity not found', re-upload the image to get a fresh media_id."""
+    req_type = req.get("type", "")
+    pid = req.get("project_id", "")
+    orientation = req.get("orientation", "VERTICAL")
+    prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
+
+    # Scene-based requests: re-upload scene image
+    if req_type in ("GENERATE_VIDEO", "GENERATE_VIDEO_REFS", "UPSCALE_VIDEO"):
+        scene = await crud.get_scene(req.get("scene_id"))
+        if not scene:
+            return False
+        url = scene.get(f"{prefix}_image_url")
+        if not url:
+            return False
+        new_mid = await _reupload_media(url, pid)
+        if new_mid:
+            await crud.update_scene(scene["id"], **{f"{prefix}_image_media_id": new_mid})
+            logger.info("Recovered scene %s: new %s_image_media_id=%s", scene["id"][:12], prefix, new_mid[:12])
+            return True
+
+    # Character-based requests: re-upload ref image
+    if req_type in ("EDIT_CHARACTER_IMAGE",):
+        char = await crud.get_character(req.get("character_id"))
+        if not char:
+            return False
+        url = char.get("reference_image_url")
+        if not url:
+            return False
+        new_mid = await _reupload_media(url, pid)
+        if new_mid:
+            await crud.update_character(char["id"], media_id=new_mid)
+            logger.info("Recovered character %s: new media_id=%s", char["id"][:12], new_mid[:12])
+            return True
+
+    return False
+
+
 async def _handle_failure(rid: str, req: dict, result: dict):
     error_msg = result.get("error")
     if not error_msg:
@@ -151,6 +219,14 @@ async def _handle_failure(rid: str, req: dict, result: dict):
             error_msg = "Unknown error"
     if isinstance(error_msg, dict):
         error_msg = json.dumps(error_msg)[:200]
+
+    # Auto-recover expired media by re-uploading
+    if "not found" in str(error_msg).lower():
+        recovered = await _recover_entity_not_found(req)
+        if recovered:
+            logger.info("Request %s: recovered expired media, retrying", rid[:8])
+            await crud.update_request(rid, status="PENDING", error_message=f"recovered: {error_msg}")
+            return
 
     retry = req.get("retry_count", 0) + 1
     if retry < MAX_RETRIES:
