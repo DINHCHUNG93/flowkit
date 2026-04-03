@@ -32,6 +32,7 @@ class FlowClient:
         """Called when extension connects via WS."""
         self._extension_ws = ws
         logger.info("Extension connected")
+        asyncio.create_task(self._sync_tier())
 
     def clear_extension(self):
         """Called when extension disconnects."""
@@ -57,10 +58,12 @@ class FlowClient:
         if data.get("type") == "token_captured":
             self._flow_key = data.get("flowKey")
             logger.info("Flow key captured from extension")
+            asyncio.create_task(self._sync_tier())
             return
 
         if data.get("type") == "extension_ready":
             logger.info("Extension ready, flowKey=%s", "yes" if data.get("flowKeyPresent") else "no")
+            asyncio.create_task(self._sync_tier())
             return
 
         if data.get("type") == "pong":
@@ -78,6 +81,24 @@ class FlowClient:
             if not self._pending[req_id].done():
                 self._pending[req_id].set_result(data)
             return
+
+    async def _sync_tier(self):
+        """Detect current tier from credits API and update all active projects."""
+        try:
+            result = await self.get_credits()
+            data = result.get("data", result)
+            tier = data.get("userPaygateTier", "PAYGATE_TIER_ONE")
+            logger.info("Syncing tier: %s", tier)
+
+            from agent.db import crud
+            projects = await crud.list_projects(status="ACTIVE")
+            for p in projects:
+                if p.get("user_paygate_tier") != tier:
+                    await crud.update_project(p["id"], user_paygate_tier=tier)
+                    logger.info("Updated project %s tier: %s -> %s",
+                                p["id"][:12], p.get("user_paygate_tier"), tier)
+        except Exception as e:
+            logger.warning("Failed to sync tier: %s", e)
 
     async def _send(self, method: str, params: dict, timeout: float = 300) -> dict:
         """Send request to extension and wait for response.
