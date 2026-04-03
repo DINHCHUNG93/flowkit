@@ -79,3 +79,5 @@ Original scene 3 (order=5) → shifted from 3
 ```
 
 Each INSERT scene has `parent_scene_id` = original scene 2, `chain_type: "INSERT"`.
+
+**IMPORTANT: Create INSERT scenes one at a time.** The API auto-shifts subsequent scene orders on each INSERT. If you batch multiple INSERTs, each one must use the CURRENT state (after prior shifts), not pre-calculated orders. Create first INSERT → verify order → create next INSERT.
