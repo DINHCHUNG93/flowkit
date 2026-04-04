@@ -31,6 +31,8 @@ class SQLiteRepository(Repository):
             language=row.get("language", "en"),
             status=row.get("status", "ACTIVE"),
             user_paygate_tier=row.get("user_paygate_tier", "PAYGATE_TIER_ONE"),
+            narrator_voice=row.get("narrator_voice"),
+            narrator_ref_audio=row.get("narrator_ref_audio"),
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
             _repo=self,

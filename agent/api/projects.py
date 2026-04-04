@@ -63,9 +63,21 @@ def _build_character_profile(char_name: str, char_desc: str | None, story: str,
         f"Story context: {story}"
     )
 
+    # Build style instruction based on style parameter
+    if style.lower() == "photorealistic":
+        style_instruction = (
+            "Photorealistic RAW photograph, shot on Canon EOS R5, 35mm lens, "
+            "natural available light. NOT 3D render, NOT CGI, NOT digital art, "
+            "NOT illustration, NOT anime, NOT painting."
+        )
+    elif style.lower() == "3d":
+        style_instruction = "3D animated style, Pixar-quality rendering."
+    else:
+        style_instruction = f"{style} style."
+
     image_prompt = (
         f"Single reference image of {base_desc}. "
-        f"{style} animated style, Pixar-quality rendering. "
+        f"{style_instruction} "
         f"{composition} "
         f"ONE single image only, NOT a multi-panel grid or multiple views. "
         f"Studio lighting, highly detailed"
@@ -127,6 +139,7 @@ async def create(body: ProjectCreate):
     # Step 2: Create local project with the Flow-assigned ID and detected tier
     create_data = body.model_dump(exclude_none=True)
     create_data.pop("tool_name", None)
+    create_data.pop("style", None)
     characters_input = create_data.pop("characters", None)
 
     project = await repo.create_project(
@@ -148,15 +161,26 @@ async def create(body: ProjectCreate):
                     char_input.get("description"),
                     body.story,
                     entity_type=etype,
+                    style=body.style,
                 )
                 description = profile["description"]
                 image_prompt = profile["image_prompt"]
             else:
                 description = char_input.get("description") or char_input["name"]
                 composition = COMPOSITION_GUIDELINES.get(etype, COMPOSITION_GUIDELINES["character"])
+                if body.style.lower() == "photorealistic":
+                    style_inst = (
+                        "Photorealistic RAW photograph, shot on Canon EOS R5, 35mm lens, "
+                        "natural available light. NOT 3D render, NOT CGI, NOT digital art, "
+                        "NOT illustration, NOT anime, NOT painting."
+                    )
+                elif body.style.lower() == "3d":
+                    style_inst = "3D animated style, Pixar-quality rendering."
+                else:
+                    style_inst = f"{body.style} style."
                 image_prompt = (
                     f"Reference image of {description}. "
-                    f"3D animated style, Pixar-quality rendering. "
+                    f"{style_inst} "
                     f"{composition} "
                     f"Studio lighting, highly detailed"
                 )

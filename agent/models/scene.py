@@ -50,6 +50,7 @@ class SceneUpdate(BaseModel):
     trim_start: Optional[float] = None
     trim_end: Optional[float] = None
     duration: Optional[float] = None
+    narrator_text: Optional[str] = None
 
 
 class Scene(BaseModel):
@@ -90,6 +91,7 @@ class Scene(BaseModel):
     trim_start: Optional[float] = None
     trim_end: Optional[float] = None
     duration: Optional[float] = None
+    narrator_text: Optional[str] = None
 
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

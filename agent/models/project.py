@@ -18,6 +18,7 @@ class ProjectCreate(BaseModel):
     language: str = "en"
     user_paygate_tier: PaygateTier = "PAYGATE_TIER_ONE"
     tool_name: str = "PINHOLE"
+    style: str = "3D"  # "3D", "photorealistic", "anime", "watercolor", etc.
     characters: Optional[list[CharacterInput]] = None
 
 
@@ -29,6 +30,8 @@ class ProjectUpdate(BaseModel):
     language: Optional[str] = None
     status: Optional[ProjectStatus] = None
     user_paygate_tier: Optional[PaygateTier] = None
+    narrator_voice: Optional[str] = None
+    narrator_ref_audio: Optional[str] = None
 
 
 class Project(BaseModel):
@@ -40,5 +43,7 @@ class Project(BaseModel):
     language: str = "en"
     status: str = "ACTIVE"
     user_paygate_tier: str = "PAYGATE_TIER_ONE"
+    narrator_voice: Optional[str] = None
+    narrator_ref_audio: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

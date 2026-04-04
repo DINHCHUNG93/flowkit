@@ -26,6 +26,8 @@ class Project(DomainModel):
     language: str = "en"
     status: str = "ACTIVE"
     user_paygate_tier: str = "PAYGATE_TIER_ONE"
+    narrator_voice: Optional[str] = None
+    narrator_ref_audio: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

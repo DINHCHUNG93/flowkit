@@ -42,6 +42,7 @@ class Scene(DomainModel):
     prompt: Optional[str] = None
     image_prompt: Optional[str] = None
     video_prompt: Optional[str] = None
+    narrator_text: Optional[str] = None
     character_names: Optional[list[str]] = field(default=None)
     parent_scene_id: Optional[str] = None
     chain_type: str = "ROOT"
@@ -80,6 +81,7 @@ class Scene(DomainModel):
             prompt=row.get("prompt"),
             image_prompt=row.get("image_prompt"),
             video_prompt=row.get("video_prompt"),
+            narrator_text=row.get("narrator_text"),
             character_names=names_raw,
             parent_scene_id=row.get("parent_scene_id"),
             chain_type=row.get("chain_type", "ROOT"),

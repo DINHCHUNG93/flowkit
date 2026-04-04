@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS project (
     language    TEXT NOT NULL DEFAULT 'en',
     status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','ARCHIVED','DELETED')),
     user_paygate_tier TEXT NOT NULL DEFAULT 'PAYGATE_TIER_ONE',
+    narrator_voice TEXT,
+    narrator_ref_audio TEXT,
     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -104,6 +106,9 @@ CREATE TABLE IF NOT EXISTS scene (
     trim_start  REAL,
     trim_end    REAL,
     duration    REAL,
+
+    -- Narration
+    narrator_text TEXT,
 
     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -206,6 +211,18 @@ CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
         if "source" not in scene_columns:
             await db.execute("ALTER TABLE scene ADD COLUMN source TEXT NOT NULL DEFAULT 'root'")
             logger.info("Migrated: added source column to scene table")
+        if "narrator_text" not in scene_columns:
+            await db.execute("ALTER TABLE scene ADD COLUMN narrator_text TEXT")
+            logger.info("Migrated: added narrator_text column to scene table")
+        # Migration: add narrator fields to project table
+        cursor = await db.execute("PRAGMA table_info(project)")
+        project_columns = {row[1] for row in await cursor.fetchall()}
+        if "narrator_voice" not in project_columns:
+            await db.execute("ALTER TABLE project ADD COLUMN narrator_voice TEXT")
+            logger.info("Migrated: added narrator_voice column to project table")
+        if "narrator_ref_audio" not in project_columns:
+            await db.execute("ALTER TABLE project ADD COLUMN narrator_ref_audio TEXT")
+            logger.info("Migrated: added narrator_ref_audio column to project table")
         await db.commit()
     logger.info("Database initialized at %s", DB_PATH)
 

@@ -50,6 +50,12 @@ ENDPOINTS = {
     "get_media": "/v1/media/{media_id}",
 }
 
+# ─── TTS (OmniVoice) ─────────────────────────────────────────
+TTS_MODEL = os.environ.get("TTS_MODEL", "k2-fsa/OmniVoice")
+TTS_DEVICE = os.environ.get("TTS_DEVICE", "cpu")  # MPS produces gibberish; CPU+fp32 works
+TTS_SAMPLE_RATE = int(os.environ.get("TTS_SAMPLE_RATE", "24000"))
+TTS_OUTPUT_DIR = BASE_DIR / "output" / "tts"
+
 # ─── Review / Claude Vision ──────────────────────────────────
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 REVIEW_MODEL = os.environ.get("REVIEW_MODEL", "claude-haiku-4-5-20251001")

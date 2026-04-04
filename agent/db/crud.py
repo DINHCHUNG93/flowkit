@@ -18,7 +18,7 @@ def _validate_table(table: str) -> None:
 # Column whitelists per table — prevents SQL injection via kwargs keys
 _COLUMNS = {
     "character": {"name", "entity_type", "description", "image_prompt", "voice_description", "reference_image_url", "media_id", "updated_at"},
-    "project": {"name", "description", "story", "thumbnail_url", "language", "status", "user_paygate_tier", "updated_at"},
+    "project": {"name", "description", "story", "thumbnail_url", "language", "status", "user_paygate_tier", "narrator_voice", "narrator_ref_audio", "updated_at"},
     "video": {"title", "description", "display_order", "status", "vertical_url", "horizontal_url",
               "thumbnail_url", "duration", "resolution", "youtube_id", "privacy", "tags", "updated_at"},
     "scene": {"prompt", "image_prompt", "video_prompt", "character_names", "chain_type",
@@ -29,7 +29,7 @@ _COLUMNS = {
               "horizontal_video_url", "horizontal_video_media_id", "horizontal_video_status",
               "horizontal_upscale_url", "horizontal_upscale_media_id", "horizontal_upscale_status",
               "vertical_end_scene_media_id", "horizontal_end_scene_media_id",
-              "trim_start", "trim_end", "duration", "display_order", "source", "updated_at"},
+              "trim_start", "trim_end", "duration", "display_order", "source", "narrator_text", "updated_at"},
     "request": {"status", "request_id", "media_id", "output_url", "error_message", "retry_count", "source_media_id", "updated_at"},
 }
 
