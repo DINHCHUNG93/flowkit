@@ -36,7 +36,15 @@ if [ -z "$health" ]; then
 fi
 
 ext=$(echo "$health" | jq -r '.extension_connected // false' 2>/dev/null)
-if [ "$ext" = "true" ]; then ext_icon="Ext:Ok"; else ext_icon="Ext:✗"; fi
+ws_connects=$(echo "$health" | jq -r '.ws.connects // 0' 2>/dev/null)
+ws_disconnects=$(echo "$health" | jq -r '.ws.disconnects // 0' 2>/dev/null)
+ws_uptime=$(echo "$health" | jq -r '.ws.uptime_s // 0' 2>/dev/null)
+if [ "$ext" = "true" ]; then
+  ws_up_min=$((ws_uptime / 60))
+  ext_icon="WS:${G}Ok${R}(${ws_up_min}m↑${ws_connects}c↓${ws_disconnects}d)"
+else
+  ext_icon="WS:${V}✗${R}(↓${ws_disconnects}d)"
+fi
 
 # Flow status (credits + token freshness)
 flow_info=""

@@ -27,15 +27,24 @@ class FlowClient:
         self._extension_ws = None  # Set by WS server when extension connects
         self._pending: dict[str, asyncio.Future] = {}
         self._flow_key: Optional[str] = None
+        # WS stats
+        self._ws_connect_count = 0
+        self._ws_disconnect_count = 0
+        self._ws_connected_at: Optional[float] = None
+        self._ws_last_disconnect_at: Optional[float] = None
 
     def set_extension(self, ws):
         """Called when extension connects via WS."""
         self._extension_ws = ws
-        logger.info("Extension connected (waiting for extension_ready/token_captured to sync)")
+        self._ws_connect_count += 1
+        self._ws_connected_at = time.time()
+        logger.info("Extension connected #%d (waiting for extension_ready/token_captured to sync)", self._ws_connect_count)
 
     def clear_extension(self):
         """Called when extension disconnects."""
         self._extension_ws = None
+        self._ws_disconnect_count += 1
+        self._ws_last_disconnect_at = time.time()
         # Cancel all pending futures (copy to avoid RuntimeError on concurrent modification)
         pending_copy = list(self._pending.items())
         count = len(pending_copy)
@@ -51,6 +60,18 @@ class FlowClient:
     @property
     def connected(self) -> bool:
         return self._extension_ws is not None
+
+    @property
+    def ws_stats(self) -> dict:
+        uptime = None
+        if self._ws_connected_at and self.connected:
+            uptime = int(time.time() - self._ws_connected_at)
+        return {
+            "connected": self.connected,
+            "connects": self._ws_connect_count,
+            "disconnects": self._ws_disconnect_count,
+            "uptime_s": uptime,
+        }
 
     async def handle_message(self, data: dict):
         """Handle incoming message from extension."""

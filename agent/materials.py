@@ -1,7 +1,9 @@
 """Material registry — built-in and custom visual styles for image generation."""
 
 _BUILTIN_IDS: frozenset[str] = frozenset({
-    "realistic", "3d_pixar", "anime", "stop_motion", "minecraft", "oil_painting"
+    "realistic", "3d_pixar", "anime", "ghibli", "stop_motion", "minecraft",
+    "oil_painting", "watercolor", "comic_book", "cyberpunk", "claymation",
+    "lego", "retro_vhs",
 })
 
 MATERIALS: dict[str, dict] = {
@@ -114,6 +116,134 @@ MATERIALS: dict[str, dict] = {
             "warm palette, dramatic chiaroscuro lighting."
         ),
         "lighting": "Dramatic chiaroscuro lighting, rich tonal depth",
+    },
+    "ghibli": {
+        "id": "ghibli",
+        "name": "Studio Ghibli",
+        "style_instruction": (
+            "Studio Ghibli anime style, hand-painted watercolor backgrounds, "
+            "soft pastel colors, gentle rounded character designs, whimsical atmosphere. "
+            "Hayao Miyazaki aesthetic, detailed natural environments, magical realism."
+        ),
+        "negative_prompt": (
+            "NOT photorealistic, NOT 3D render, NOT dark, NOT gritty, "
+            "NOT sharp edges, NOT Western cartoon."
+        ),
+        "scene_prefix": (
+            "Studio Ghibli anime style, hand-painted watercolor backgrounds, "
+            "soft pastel colors, gentle whimsical atmosphere."
+        ),
+        "lighting": "Soft natural Ghibli lighting, golden hour warmth, dappled sunlight",
+    },
+    "watercolor": {
+        "id": "watercolor",
+        "name": "Watercolor",
+        "style_instruction": (
+            "Soft watercolor painting on cold-press paper, loose wet brushwork, "
+            "translucent color washes bleeding into each other, white paper showing through. "
+            "Delicate ink outlines, impressionistic and dreamy."
+        ),
+        "negative_prompt": (
+            "NOT photorealistic, NOT 3D render, NOT digital art, NOT anime, "
+            "NOT sharp edges, NOT bold outlines."
+        ),
+        "scene_prefix": (
+            "Watercolor painting style, soft wet brushwork, "
+            "translucent color washes, delicate ink outlines."
+        ),
+        "lighting": "Soft diffused natural light, watercolor wash",
+    },
+    "comic_book": {
+        "id": "comic_book",
+        "name": "Comic Book",
+        "style_instruction": (
+            "American comic book art style, bold black ink outlines, flat vibrant colors "
+            "with halftone dot shading, dynamic action poses, dramatic foreshortening. "
+            "Marvel/DC superhero comic aesthetic, Ben-Day dots, speech bubble ready."
+        ),
+        "negative_prompt": (
+            "NOT photorealistic, NOT 3D render, NOT anime, NOT watercolor, "
+            "NOT soft edges, NOT muted colors."
+        ),
+        "scene_prefix": (
+            "Comic book style, bold ink outlines, vibrant flat colors, "
+            "halftone shading, dynamic composition."
+        ),
+        "lighting": "High contrast comic lighting, dramatic shadows, rim light",
+    },
+    "cyberpunk": {
+        "id": "cyberpunk",
+        "name": "Cyberpunk",
+        "style_instruction": (
+            "Cyberpunk sci-fi aesthetic, neon-lit dark urban environment, "
+            "holographic displays, rain-slicked streets reflecting neon signs. "
+            "Blade Runner meets Ghost in the Shell, high-tech low-life, "
+            "chrome and glass, purple and cyan color palette."
+        ),
+        "negative_prompt": (
+            "NOT natural environment, NOT bright daylight, NOT historical, "
+            "NOT cartoon, NOT fantasy medieval."
+        ),
+        "scene_prefix": (
+            "Cyberpunk aesthetic, neon-lit dark urban, holographic displays, "
+            "rain-slicked streets, purple and cyan neon."
+        ),
+        "lighting": "Neon rim lighting, volumetric fog, cyan and magenta",
+    },
+    "claymation": {
+        "id": "claymation",
+        "name": "Claymation",
+        "style_instruction": (
+            "Clay animation style, characters made of modeling clay with visible "
+            "fingerprint textures, slightly imperfect sculpted features. "
+            "Wallace & Gromit / Aardman aesthetic, miniature handmade sets, "
+            "warm practical lighting on tiny clay world."
+        ),
+        "negative_prompt": (
+            "NOT photorealistic, NOT digital, NOT anime, NOT smooth skin, "
+            "NOT 3D render, NOT glass or metal surfaces."
+        ),
+        "scene_prefix": (
+            "Claymation style, clay puppet characters with fingerprint textures, "
+            "miniature handmade sets, warm practical lighting."
+        ),
+        "lighting": "Warm miniature set lighting, soft shadows, macro detail",
+    },
+    "lego": {
+        "id": "lego",
+        "name": "LEGO",
+        "style_instruction": (
+            "LEGO brick style, characters are LEGO minifigures with yellow skin "
+            "and claw hands, environments built entirely from LEGO bricks and plates. "
+            "Visible brick studs, ABS plastic texture, The LEGO Movie aesthetic."
+        ),
+        "negative_prompt": (
+            "NOT photorealistic, NOT organic, NOT smooth, NOT anime, "
+            "NOT round shapes, NOT natural materials."
+        ),
+        "scene_prefix": (
+            "LEGO style, minifigure characters, brick-built environments, "
+            "visible studs, plastic ABS texture."
+        ),
+        "lighting": "Bright toy photography lighting, sharp focus, product shot quality",
+    },
+    "retro_vhs": {
+        "id": "retro_vhs",
+        "name": "Retro VHS",
+        "style_instruction": (
+            "1980s VHS tape aesthetic, analog video noise and scan lines, "
+            "slightly washed-out warm colors, CRT TV curvature, tracking artifacts. "
+            "Retro camcorder footage feel, date stamp overlay, nostalgic grain."
+        ),
+        "negative_prompt": (
+            "NOT modern, NOT 4K, NOT clean, NOT digital, NOT anime, "
+            "NOT sharp, NOT high-definition."
+        ),
+        "scene_prefix": (
+            "Retro VHS style, analog scan lines, warm washed-out colors, "
+            "CRT curvature, nostalgic 80s grain."
+        ),
+        "lighting": "Warm tungsten lighting, CRT glow, analog video bloom",
     },
 }
 

@@ -56,9 +56,28 @@ The project `story` provides overall narrative context.
 
 **Language:** Use `--language` flag or project's `language` field.
 
-**Word count targets (for 8s scene at 1.1x speed):**
-- Vietnamese: 25-35 words → fills 5-7s
-- English: 20-30 words → fills 5-7s
+**CRITICAL: Narrator MUST be shorter than video.**
+Each scene video is 8s. With `-ss 1` trim, usable video = 7s. With 0.5s buffer, narrator must fit in ~6.5s max.
+At 1.1x speed: Vietnamese ~5.5 words/sec, English ~4.5 words/sec.
+
+**Word count limits (HARD MAX — never exceed):**
+
+| Language | Max Words | ~Duration | Words/sec | Notes |
+|----------|-----------|-----------|-----------|-------|
+| Vietnamese | 20 | ~5s | ~4.0 | Tonal, many monosyllabic words but diacritics slow TTS |
+| English | 20 | ~5s | ~4.0 | Standard baseline |
+| Japanese | 30 | ~5s | ~6.0 | Short words, particles add up fast (は、を、に) |
+| Korean | 20 | ~5s | ~4.0 | Agglutinative, long compound words = fewer needed |
+| Thai | 22 | ~5s | ~4.5 | Tonal like Vietnamese, no spaces between words |
+| Chinese (ZH) | 25 | ~5s | ~5.0 | Each character = 1 syllable, very dense |
+| Spanish | 22 | ~5s | ~4.5 | Slightly faster than English |
+| French | 22 | ~5s | ~4.5 | Liaison makes speech flow faster |
+| Arabic | 18 | ~5s | ~3.5 | Long words, formal style = slower delivery |
+| Hindi | 20 | ~5s | ~4.0 | Compound verbs take time |
+
+**Why strict?** TTS duration varies — same word count can produce 5s or 8s depending on syllables, pauses, and voice. Keep conservative so TTS stays under 7s. If narrator is longer than video, it gets cut off mid-sentence.
+
+**Rule of thumb for unlisted languages:** MAX 20 words. Adjust down for languages with long compound words (German, Finnish), adjust up for languages with short particles (Japanese, Chinese).
 
 **Documentary narrator style:**
 

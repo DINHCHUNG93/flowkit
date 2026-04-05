@@ -120,6 +120,7 @@ function updateRequestLog(entries) {
   }
 
   countEl.textContent = entries.length;
+  _logEntries = entries;
 
   // Render newest first (entries already sorted DESC by background.js)
   const rows = entries.map((entry) => {
@@ -147,7 +148,7 @@ function updateRequestLog(entries) {
       : `<td class="td-error empty">—</td>`;
 
     return `<tr>
-      <td class="td-id">${escHtml(shortId)}</td>
+      <td class="td-id" data-request-id="${escHtml(entry.id || '')}">${escHtml(shortId)}</td>
       <td class="td-type">${escHtml(type)}</td>
       <td class="td-time">${escHtml(time)}</td>
       <td>${badgeHtml}</td>
@@ -156,6 +157,14 @@ function updateRequestLog(entries) {
   });
 
   tbody.innerHTML = rows.join('');
+
+  // Attach click handlers to ID cells
+  tbody.querySelectorAll('.td-id[data-request-id]').forEach(td => {
+    td.addEventListener('click', () => {
+      const reqId = td.getAttribute('data-request-id');
+      if (reqId) showRequestDetail(reqId);
+    });
+  });
 }
 
 function escHtml(str) {
@@ -170,6 +179,55 @@ function truncate(str, len) {
   if (!str || str.length <= len) return str;
   return str.slice(0, len) + '…';
 }
+
+// ── Request detail modal ────────────────────────────────────
+
+let _logEntries = [];
+
+function showRequestDetail(reqId) {
+  const entry = _logEntries.find(e => e.id === reqId);
+  if (!entry) return;
+
+  const overlay = document.getElementById('detail-overlay');
+  const title = document.getElementById('detail-title');
+  const body = document.getElementById('detail-body');
+
+  title.textContent = `Request ${String(reqId).slice(0, 12)}`;
+
+  const fields = [
+    ['ID', entry.id],
+    ['Type', formatType(entry.type || entry.method)],
+    ['Time', formatTime(entry.time || entry.timestamp || entry.createdAt)],
+    ['Status', entry.status || entry.state || 'pending'],
+    ['HTTP', entry.httpStatus || '—'],
+    ['URL', entry.url || '—'],
+    ['Payload', entry.payloadSummary || '—'],
+    ['Response', entry.responseSummary || '—'],
+    ['Error', entry.error || '—'],
+  ];
+
+  body.innerHTML = fields.map(([label, value]) => {
+    let cls = 'detail-value';
+    if (label === 'Error' && value && value !== '—') cls += ' error';
+    if (label === 'Status' && (value === 'COMPLETED' || value === 'success')) cls += ' ok';
+    return `<div class="detail-row">
+      <div class="detail-label">${escHtml(label)}</div>
+      <div class="${cls}">${escHtml(String(value || '—'))}</div>
+    </div>`;
+  }).join('');
+
+  overlay.classList.add('open');
+}
+
+document.getElementById('detail-close').addEventListener('click', () => {
+  document.getElementById('detail-overlay').classList.remove('open');
+});
+
+document.getElementById('detail-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    e.currentTarget.classList.remove('open');
+  }
+});
 
 // ── Initial data fetch ───────────────────────────────────────
 

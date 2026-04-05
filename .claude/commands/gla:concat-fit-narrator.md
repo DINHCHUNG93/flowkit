@@ -84,7 +84,7 @@ For each scene, single ffmpeg pass — trim, normalize resolution, and mix TTS:
 
 ```bash
 ffmpeg -y -i "$VIDEO_FILE" -i "$TTS_WAV" \
-  -t ${CUT_DUR} \
+  -ss 1 -t ${CUT_DUR} \
   -filter_complex "[0:a]volume=0.3[bg];[1:a]volume=1.5[fg];[bg][fg]amix=inputs=2:duration=first[aout]" \
   -map 0:v -map "[aout]" \
   -c:v libx264 -preset fast -crf 18 \
@@ -96,7 +96,8 @@ ffmpeg -y -i "$VIDEO_FILE" -i "$TTS_WAV" \
 ```
 
 **Key flags:**
-- `-t ${CUT_DUR}` — trims output to narrator duration + buffer
+- `-ss 1` — starts from 1s (skips the first second of each scene — often a static frame before motion begins)
+- `-t ${CUT_DUR}` — trims output to narrator duration + buffer (from the 1s start point)
 - `duration=first` — audio output matches the first input (video SFX, 8s), which `-t` then trims to cut duration. TTS plays fully within this window since cut = tts_dur + buffer.
 - `volume=0.3` for SFX, `volume=1.5` for narrator
 - Do NOT use `apad` — it generates infinite silence and stalls the pipeline
@@ -105,6 +106,7 @@ ffmpeg -y -i "$VIDEO_FILE" -i "$TTS_WAV" \
 
 ```bash
 ffmpeg -y -i "$VIDEO_FILE" \
+  -ss 1 \
   -c:v libx264 -preset fast -crf 18 \
   -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
   -r 24 -pix_fmt yuv420p \

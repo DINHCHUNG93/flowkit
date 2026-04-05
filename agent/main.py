@@ -162,6 +162,7 @@ async def health():
         "status": "ok",
         "version": "0.2.0",
         "extension_connected": client.connected,
+        "ws": client.ws_stats,
     }
 
 
