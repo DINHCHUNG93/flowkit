@@ -1,10 +1,8 @@
 Generate 4 YouTube-optimized thumbnail variants for a project video.
 
-Usage: `/gla:thumbnail [project_id]` or `/gla:thumbnail` (prompts for selection)
+Usage: `/gla:thumbnail [project_id]`
 
-Reference: `skills/gla:thumbnail-guide.md` for full YouTube thumbnail design rules.
-
-## Step 1: Get project context
+## Step 1: Load project context
 
 ```bash
 curl -s http://127.0.0.1:8100/api/projects/<PID>
@@ -13,139 +11,133 @@ curl -s "http://127.0.0.1:8100/api/projects/<PID>/characters"
 curl -s "http://127.0.0.1:8100/api/scenes?video_id=<VID>"
 ```
 
-Extract: project name, story, video title, character names (with media_id), scene prompts.
+Extract and understand:
+- **Story**: what is this video about? What is the conflict? What is at stake?
+- **Main character(s)**: who drives the story? (must have media_id for refs)
+- **Key conflict**: what dramatic moment defines the video?
+- **Language**: match the project language for text on thumbnail
 
-## Step 2: Analyze story for thumbnail moments
+## Step 2: Create the HOOK
 
-Read ALL scene video_prompts. Identify:
-- **Climax moment** — highest tension/action scene
-- **Hero moment** — main character in emotional/powerful state
-- **Threat moment** — antagonist/danger most visible
-- **Stakes moment** — situation feels impossible
+A YouTube thumbnail hook = ONE sentence that makes someone NEED to click.
 
-## Step 3: Select 4 formulas and craft prompts
+Based on the story, create a hook by answering:
+- "What question does this video answer?"
+- "What impossible situation happens?"
+- "What will the viewer NOT believe?"
 
-Pick 4 different formulas from the thumbnail guide. For each, craft a prompt following these STRICT rules:
+Turn the hook into **2-4 bold words** for the thumbnail text. Examples:
+- Military story about Iran blocking strait → "EO BIỂN TỬ THẦN" or "IRAN ATTACKS!"
+- Romance about impossible love → "CÔ ẤY ĐÃ CHẾT?"
+- Action about heist → "KHÔNG AI SỐNG SÓT"
 
-### Prompt rules (from thumbnail-guide.md):
-- ONE focal subject, 40-60% of frame
-- Extreme emotion on face (shock, anger, determination, fear) — NEVER neutral
-- Bold vivid colors: Red+Blue, Yellow+Purple, Orange+Teal — NEVER pastels
-- Dramatic lighting: rim light, golden hour, high-contrast shadows
-- Simple/blurred background — high contrast against subject
-- Leave clean negative space in upper-left or upper-right for text overlay
-- For military/action: cinematic color grade, desaturated shadows, ONE vivid accent (fire/explosion)
-- Scene prompt = ACTION only — never describe character appearance
+The text MUST be:
+- 2-4 words maximum
+- In the project's language
+- Provocative — creates curiosity gap
+- Uses power words: ATTACK, DEATH, IMPOSSIBLE, SHOCK, SECRET, LAST, FINAL
 
-### Generate 4 variants:
+## Step 3: Build 4 thumbnail prompts
 
-**Variant 1 — Reaction Face (Formula 1):**
+**ALL prompts MUST include:**
+1. The hook text as bold text IN the image (not overlay)
+2. Character names in `character_names` for face consistency
+3. The project's material style prefix
+
+### Prompt template:
+
 ```
-Extreme close-up of [MAIN CHARACTER] face filling 50% of frame, 
-[INTENSE EMOTION: eyes wide with shock/jaw clenched with determination/mouth open screaming], 
-[DRAMATIC BACKGROUND ELEMENT visible behind: explosions/enemy approaching/chaos], 
-vivid [COLOR1] and [COLOR2] palette, dramatic rim lighting, 
-clean space upper-right for title text, photorealistic, YouTube thumbnail style
-```
-
-**Variant 2 — Stakes Frame (Formula 5):**
-```
-[MAIN CHARACTER] [ACTION: standing alone/gripping weapon/facing forward] against 
-[OVERWHELMING THREAT: army of enemies/massive explosion/impossible odds], 
-extreme scale contrast showing danger, cinematic wide angle, 
-[COLOR] accent against dark environment, dramatic volumetric lighting,
-clean space upper-left for title text, photorealistic, YouTube thumbnail style
-```
-
-**Variant 3 — Contrast/Clash (Formula 3):**
-```
-Split tension: [HERO] on left side in [HEROIC POSE], [VILLAIN/THREAT] on right side [MENACING],
-facing each other, high visual tension, bold [COLOR1] vs [COLOR2] contrast,
-dramatic shadows between them, cinematic composition,
-clean space at top for title text, photorealistic, YouTube thumbnail style  
+[MATERIAL_PREFIX] Bold YouTube thumbnail, [HOOK_TEXT] written in large bold white text 
+with black outline at [POSITION: top/upper-left/upper-right] of frame.
+[MAIN_CHARACTER] [ACTION + EXTREME EMOTION], [DRAMATIC ELEMENT behind/around character],
+vivid [COLOR1] and [COLOR2], bright saturated colors, dramatic rim lighting,
+simple blurred background, photorealistic, YouTube thumbnail style, 
+designed to hook viewers and get clicks
 ```
 
-**Variant 4 — Mystery/Reveal (Formula 4):**
-```
-[MAIN CHARACTER] looking at something dramatic off-screen with [SHOCK/AWE expression],
-[PARTIAL REVEAL of threat/event visible at frame edge], 
-mysterious dramatic lighting with [COLOR] glow,
-viewer curiosity — what is the character seeing?,
-clean space upper area for title text, photorealistic, YouTube thumbnail style
-```
+### 4 variants — each uses different angle:
 
-Present all 4 prompts to user: "Generate these 4 thumbnails? Or modify any prompt."
+**V1 — Face + Text (hook via emotion):**
+Main character face HUGE (50% of frame), extreme emotion, hook text at top.
+Background: threat/explosion/danger barely visible.
 
-## Step 4: Identify character references
+**V2 — Action + Text (hook via stakes):**
+Main character in action pose, overwhelming threat visible, hook text at top-left.
+Wide enough to show the scale of danger.
 
-From entities, pick characters with `media_id` for visual consistency.
-Only include entities that have `media_id` (UUID format).
-If key characters missing media_id — warn user, offer to proceed without refs.
+**V3 — Confrontation + Text (hook via conflict):**
+Hero vs villain/threat facing each other, hook text between them or at top.
+Clear visual tension between two sides.
+
+**V4 — Mystery + Text (hook via curiosity):**
+Character reacting to something OFF-SCREEN, hook text as a question or cliffhanger.
+Viewer can't see what character sees → must click.
+
+## Step 4: Collect character refs
+
+From entity list, include ALL main characters that have `media_id` in `character_names`.
+This ensures faces match the video — critical for channel consistency.
+
+If character refs fail (400 error), retry without refs but warn user.
 
 ## Step 5: Generate 4 thumbnails
 
-Submit 4 requests SEQUENTIALLY (not parallel — avoids captcha race):
+SEQUENTIALLY with 8s cooldown between each:
 
 ```bash
 for i in 1 2 3 4; do
   curl -s -m 90 -X POST "http://127.0.0.1:8100/api/projects/<PID>/generate-thumbnail" \
     -H "Content-Type: application/json" \
     -d '{
-      "prompt": "<variant_N_prompt>",
-      "character_names": ["<character1>", "<character2>"],
+      "prompt": "<variant_prompt_with_text_embedded>",
+      "character_names": ["<main_char1>", "<main_char2>"],
       "aspect_ratio": "LANDSCAPE",
       "output_filename": "thumbnail_v'$i'.png"
     }'
-  sleep 5  # cooldown between requests
+  sleep 8
 done
 ```
 
-Handle errors:
-- 400 (missing refs): skip character_names, retry without refs
-- 503 (extension not connected): abort, tell user to check health
-- reCAPTCHA failed: retry that variant once
+If reCAPTCHA fails: retry that variant once.
+If 400 (missing refs): retry without character_names.
 
-## Step 6: Resize all to YouTube format (1280x720)
+## Step 6: Resize to YouTube (1280x720)
 
 ```bash
-PROJECT_DIR="output/<project_name>"
 for i in 1 2 3 4; do
-  ffmpeg -y -i "${PROJECT_DIR}/thumbnail_v${i}.png" \
+  ffmpeg -y -i "${DIR}/thumbnail_v${i}.png" \
     -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black" \
-    "${PROJECT_DIR}/thumbnail_v${i}_yt.png"
+    "${DIR}/thumbnail_v${i}_yt.png" 2>/dev/null
 done
 ```
 
-## Step 7: Show all 4 variants
+## Step 7: Show all 4 and evaluate
 
-Display all 4 thumbnails (use Read tool to show images).
+Display all 4 thumbnails using Read tool.
 
-Ask user: "Which variant do you want as the main thumbnail? Options: 1, 2, 3, 4, or 'regenerate N' to retry a specific variant."
+For EACH thumbnail, evaluate honestly:
+- Is the text readable? Bold enough? Well-positioned?
+- Is the face big enough (30-50% of frame)?
+- Is the emotion extreme (not neutral)?
+- Are colors bright and saturated (not dark/muted)?
+- Would YOU click this on YouTube?
+- Does it create curiosity — what happens next?
 
-## Step 8: Title text overlay (on selected variant)
+Rate each: STRONG / OK / WEAK with reason.
 
-Ask: "Add title text? Enter text or 'no' (default: video title)"
+Ask user: "Which one? 1-4, 'regenerate N', or 'all' to redo everything"
 
-If yes:
-```bash
-TITLE="<USER_TEXT>"
-ffmpeg -y -i "${PROJECT_DIR}/thumbnail_v${PICK}_yt.png" \
-  -vf "drawtext=text='${TITLE}':fontsize=72:fontcolor=white:borderw=4:bordercolor=black:x=(w-text_w)/2:y=60" \
-  "${PROJECT_DIR}/thumbnail_final.png"
-```
-
-## Step 9: Output
+## Step 8: Output
 
 ```
-Thumbnail generated for: <project_name>
+Thumbnails for: <project> — <video_title>
+Hook text: <the hook words used>
+Character refs: <names used>
 
-Files:
-  thumbnail_v1.png — Reaction Face (full res)
-  thumbnail_v2.png — Stakes Frame (full res)
-  thumbnail_v3.png — Contrast/Clash (full res)
-  thumbnail_v4.png — Mystery/Reveal (full res)
-  thumbnail_v{N}_yt.png — Selected, 1280x720 YouTube
-  thumbnail_final.png — With title overlay (if requested)
+V1 (Face+Text): [RATING] — thumbnail_v1_yt.png
+V2 (Action+Text): [RATING] — thumbnail_v2_yt.png  
+V3 (Confrontation+Text): [RATING] — thumbnail_v3_yt.png
+V4 (Mystery+Text): [RATING] — thumbnail_v4_yt.png
 
-To regenerate: /gla:thumbnail <PID>
+Files: output/<project>/thumbnail_v*_yt.png (1280x720)
 ```

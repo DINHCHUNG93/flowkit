@@ -78,7 +78,7 @@ TTS_WAV="output/${PROJECT_NAME}/tts/scene_${IDX3}_${SCENE_ID}.wav"
 if [ -f "$TTS_WAV" ]; then
   # MIX: video SFX at 30% volume + TTS narrator at 150% volume
   ffmpeg -y -i "scene_${IDX}.mp4" -i "$TTS_WAV" \
-    -filter_complex "[0:a]volume=0.3[bg];[1:a]volume=1.5[fg];[bg][fg]amix=inputs=2:duration=shortest[aout]" \
+    -filter_complex "[0:a]volume=0.3[bg];[1:a]volume=1.5[fg];[bg][fg]amix=inputs=2:duration=first[aout]" \
     -map 0:v -map "[aout]" \
     -c:v libx264 -preset fast -crf 18 \
     -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
