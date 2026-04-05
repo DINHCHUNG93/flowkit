@@ -105,6 +105,25 @@ processing=$(curl -s --max-time 1 "$BASE/api/requests?status=PROCESSING" 2>/dev/
 
 short_name=$(echo "$proj_name" | cut -c1-15)
 
+# 4K downloaded count (local files in output/*/4k_raw/ or output/4k_raw/)
+proj_slug=$(echo "$proj_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
+dl_count=0
+for dir in "output/${proj_slug}/4k_raw" "output/4k_raw"; do
+  if [ -d "$dir" ]; then
+    dl_count=$(ls "$dir"/*.mp4 2>/dev/null | wc -l | tr -d ' ')
+    break
+  fi
+done
+
+# TTS count
+tts_count=0
+for dir in "output/${proj_slug}/tts" "output/tts/${vid_id}"; do
+  if [ -d "$dir" ]; then
+    tts_count=$(ls "$dir"/scene_*.wav 2>/dev/null | wc -l | tr -d ' ')
+    break
+  fi
+done
+
 flow_str=""
 [ -n "$credits_info" ] && flow_str=" ${V}${credits_info}${R}"
 [ -n "$flow_info" ] && flow_str="${flow_str} ${V}${flow_info}${R}"
@@ -112,4 +131,4 @@ flow_str=""
 # Queue: pending→processing/max
 queue="${V}${pending}${R}→${V}${processing}${R}/5"
 
-echo -e "${CLAUDE:+$CLAUDE | }GLA: ${ext_icon}${flow_str} ${short_name} ${total}sc img:${V}${img_done}${R} vid:${V}${vid_done}${R} 4K:${V}${up_done}${R} Q:${queue}"
+echo -e "${CLAUDE:+$CLAUDE | }GLA: ${ext_icon}${flow_str} ${short_name} ${total}sc img:${V}${img_done}${R} vid:${V}${vid_done}${R} 4K:${V}${up_done}${R}↓${V}${dl_count}${R} TTS:${V}${tts_count}${R} Q:${queue}"
