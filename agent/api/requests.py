@@ -20,6 +20,22 @@ class RequestUpdate(BaseModel):
 async def create(body: RequestCreate):
     data = body.model_dump(exclude_none=True)
     data["req_type"] = data.pop("type")
+
+    # Reject if there's already an active request for the same scene + type
+    scene_id = data.get("scene_id")
+    req_type = data.get("req_type")
+    if scene_id and req_type:
+        existing = await crud.list_requests(scene_id=scene_id)
+        active = [r for r in existing
+                  if r.get("type") == req_type
+                  and r.get("status") in ("PENDING", "PROCESSING")]
+        if active:
+            raise HTTPException(
+                409,
+                f"Active {req_type} request already exists for scene {scene_id[:8]} "
+                f"(status={active[0]['status']}, id={active[0]['id'][:8]})"
+            )
+
     return await crud.create_request(**data)
 
 
