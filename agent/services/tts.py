@@ -1,4 +1,4 @@
-"""OmniVoice TTS service — subprocess-based (Python 3.10) for compatibility."""
+"""OmniVoice TTS service — subprocess-based for compatibility."""
 import asyncio
 import json
 import logging
@@ -11,8 +11,8 @@ from agent.config import TTS_MODEL, TTS_SAMPLE_RATE, TTS_OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
 
-# Python 3.10 has omnivoice installed (3.13 has dependency conflicts)
-PYTHON_BIN = os.environ.get("TTS_PYTHON_BIN", "/opt/homebrew/opt/python@3.10/bin/python3.10")
+# Default to system python3; override with TTS_PYTHON_BIN if needed
+PYTHON_BIN = os.environ.get("TTS_PYTHON_BIN", "python3")
 
 # Inline script template for TTS generation via subprocess
 _TTS_SCRIPT = """
@@ -109,7 +109,7 @@ async def generate_speech(
 
 
 def _run_tts_subprocess(args: dict) -> dict:
-    """Run TTS via Python 3.10 subprocess."""
+    """Run TTS subprocess."""
     proc = subprocess.run(
         [PYTHON_BIN, "-c", _TTS_SCRIPT, json.dumps(args)],
         capture_output=True, text=True, timeout=120,
@@ -219,7 +219,7 @@ async def generate_video_narration(
 
 
 def _run_batch_subprocess(args: dict) -> list[dict]:
-    """Run batch TTS via Python 3.10 subprocess. Model loads once."""
+    """Run batch TTS subprocess. Model loads once."""
     timeout = 60 + len(args.get("items", [])) * 15  # ~15s per scene
     proc = subprocess.run(
         [PYTHON_BIN, "-c", _TTS_BATCH_SCRIPT, json.dumps(args)],

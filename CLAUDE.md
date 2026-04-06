@@ -36,8 +36,7 @@ curl -s http://127.0.0.1:8100/health
 16. **Image Material required on project** — every project must have a `material` field (e.g., `realistic`, `3d_pixar`, `anime`, `stop_motion`, `minecraft`, `oil_painting`). Material controls image_prompt style for entities AND scene_prefix for scenes. List available: `GET /api/materials`.
 17. **TTS voice template first** — before narrating scenes, create a voice template (`POST /api/tts/templates`) and verify the voice. Use the template as `ref_audio` for voice cloning to ensure consistent narrator voice across all scenes. CPU-only (MPS produces gibberish).
 18. **Statusline** — GLA statusline auto-shows at bottom of Claude Code. Configured by `setup.sh`. Shows: extension status, auth, tier, project, scene counts, img/vid/4K progress, queue. Reads Claude session stats from stdin for model/ctx%/rate limits.
-19. **Selenium Browser** — `python scripts/gla_browser.py` manages Chrome with extension. Keeps token + reCAPTCHA alive via periodic page refresh. First run needs manual Google login, then persists in `.chrome-profile/`.
-20. **Token auto-refresh** — Extension refreshes token every 45 min. Auto-opens Flow tab if none exists. Side panel warns when token stale (>60 min). Resends cached token on WS reconnect.
+19. **Token auto-refresh** — Extension refreshes token every 45 min. Auto-opens Flow tab if none exists. Side panel warns when token stale (>60 min). Resends cached token on WS reconnect.
 
 **Complete video_prompt example:**
 ```
@@ -248,8 +247,7 @@ ffmpeg -y -f concat -safe 0 -i concat.txt -c copy -movflags +faststart output.mp
 ## Full Pipeline Order
 
 ```
-0.  Start browser         python scripts/gla_browser.py (keeps token + reCAPTCHA alive)
-1.  Health check          GET  /health → extension_connected: true
+0.  Health check          GET  /health → extension_connected: true
 2.  Create project        POST /api/projects (with entities + material)
 3.  Create video          POST /api/videos
 4.  Create scenes         POST /api/scenes (with character_names, chain_type, narrator_text)
@@ -404,6 +402,5 @@ agent/
 extension/             — Chrome MV3 extension (WS client, reCAPTCHA, API proxy)
 scripts/               — Seed/utility scripts
   statusline.sh        — Claude Code statusline script
-  gla_browser.py       — Selenium Chrome + extension manager
 output/                — Generated video output
 ```
