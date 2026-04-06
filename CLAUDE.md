@@ -403,4 +403,64 @@ extension/             — Chrome MV3 extension (WS client, reCAPTCHA, API proxy
 scripts/               — Seed/utility scripts
   statusline.sh        — Claude Code statusline script
 output/                — Generated video output
+youtube/
+  auth.py              — OAuth2 multi-channel auth (run: arch -arm64 python3 youtube/auth.py <channel>)
+  upload.py            — Upload with scheduling + channel rule validation
+  channels/            — Per-channel config (local-only, gitignored)
+    <channel_name>/
+      client_secrets.json   — OAuth2 credentials (required, local-only)
+      token.json            — Auth token (auto-created on first auth, auto-refreshes)
+      channel_info.json     — Channel stats from YouTube API (auto-created)
+      channel_rules.json    — Upload rules: max/day, optimal times, SEO defaults
+      <channel>_icon.png    — Brand logo for /gla:brand-logo watermark overlay
+      upload_history.json   — Upload log (auto-created by /gla:youtube-upload)
+skills/                — AI agent skill definitions (invoked as /gla:<name>)
 ```
+
+---
+
+## YouTube Channel Management
+
+### Auth Flow
+
+1. Place `client_secrets.json` in `youtube/channels/<channel_name>/`
+2. Run: `arch -arm64 python3 youtube/auth.py <channel_name>`
+3. Browser opens for Google OAuth consent (scopes: youtube.readonly + youtube.upload)
+4. Token saved to `token.json` — auto-refreshes on expiry
+
+### Channel Rules (`channel_rules.json`)
+
+Each channel has a rules file controlling upload scheduling and SEO defaults:
+
+| Key | Example | Purpose |
+|-----|---------|---------|
+| `shorts.max_per_day` | `3` | Max Shorts uploads per day |
+| `shorts.optimal_times` | `["07:00","12:00","17:00"]` | Best posting times (channel timezone) |
+| `long_form.max_per_day` | `1` | Max long video uploads per day |
+| `long_form.optimal_times` | `["19:00"]` | Prime time for long-form |
+| `scheduling.min_gap_hours` | `4` | Minimum hours between any uploads |
+| `scheduling.avoid_hours` | `[0,1,2,3,4,5]` | Hours to never post (dead hours) |
+| `seo.niche` | `"geopolitics-military-documentary"` | Content niche for keyword targeting |
+| `seo.default_tags` | `["phim tài liệu",...]` | Tags included in every upload |
+| `seo.always_include_hashtags` | `["#PhimTàiLiệu","#QuânSự"]` | Hashtags always prepended to description |
+| `seo.hashtag_language` | `"mixed_vi_en"` | Hashtag language strategy |
+| `seo.title_max_chars` | `65` | Max title length |
+| `seo.default_category` | `"25"` | YouTube category ID (25=News, 22=People, 27=Education) |
+
+### Skill Chain
+
+```
+/gla:youtube-seo   → generates title, description, hashtags, tags (reads channel_rules.json for niche/tags)
+/gla:brand-logo    → applies channel icon watermark (reads <channel>_icon.png)
+/gla:youtube-upload → validates rules + uploads (reads channel_rules.json for scheduling)
+```
+
+Typical workflow: `youtube-seo` → `brand-logo` → `youtube-upload`
+
+### Upload Validation
+
+`youtube/upload.py` validates every upload against channel rules before submitting:
+1. **Max per day** — counts uploads on target date from `upload_history.json`
+2. **Min gap** — time since last upload of any type
+3. **Avoid hours** — schedule hour in channel timezone
+4. Auto-detects Short (<61s + vertical 9:16) vs Long-form

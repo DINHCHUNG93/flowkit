@@ -4,7 +4,7 @@ Generate SEO-optimized YouTube metadata: hook title, description, hashtags, and 
 
 Usage: `/gla:youtube-seo <project_id> [--language vi] [--niche military-documentary]`
 
-## Step 1: Load project context
+## Step 1: Load project context + channel rules
 
 ```bash
 curl -s http://127.0.0.1:8100/api/projects/<PID>
@@ -19,11 +19,31 @@ Extract:
 - **Material/genre**: realistic, anime, etc. → determines niche
 - **Video duration**: from scene count × avg duration
 
+### Load channel rules (if channel specified)
+
+If `--channel <name>` is provided (or inferred from context), load SEO defaults from channel rules:
+
+```bash
+cat youtube/channels/<CHANNEL>/channel_rules.json
+```
+
+Extract from `seo` section:
+- **`niche`** → use as niche in Step 2 (skip guessing)
+- **`default_tags`** → merge into generated tags in Step 6
+- **`always_include_hashtags`** → prepend to hashtag list in Step 5
+- **`hashtag_language`** → controls language mix strategy (e.g., `mixed_vi_en`)
+- **`title_max_chars`** → enforce as hard limit in Step 3 (default: 65)
+- **`default_category`** → use as YouTube category ID
+
+If no channel rules file exists, fall back to detecting niche from project content and using skill defaults.
+
 ## Step 2: Identify the NICHE
 
 The niche determines which keywords, hashtags, and competitors to target.
 
-Based on project genre + content, classify into a niche:
+**If channel rules loaded** and `seo.niche` exists, use it directly (e.g., `geopolitics-military-documentary`). Skip classification below.
+
+**Otherwise**, based on project genre + content, classify into a niche:
 
 | Content Type | Niche | Example Keywords |
 |-------------|-------|-----------------|
@@ -39,7 +59,7 @@ Based on project genre + content, classify into a niche:
 The title is the #1 SEO factor. It must:
 
 ### Rules:
-- **60-70 characters max** (YouTube truncates at ~70)
+- **`seo.title_max_chars` from channel rules** (default: 65) — hard limit. YouTube truncates at ~70
 - **Primary keyword in first 5 words** (YouTube weighs early words higher)
 - **Power word** to trigger click: SHOCKING, SECRET, IMPOSSIBLE, ATTACK, DEADLY, LAST
 - **Curiosity gap** — promises information viewer doesn't have yet
@@ -138,10 +158,13 @@ Generated with Google Flow Agent
 
 YouTube allows up to 15 hashtags (first 3 shown above title).
 
+**If channel rules loaded**: prepend `seo.always_include_hashtags` (e.g., `#PhimTàiLiệu #QuânSự`) as the first hashtags in Tier 1. Use `seo.hashtag_language` to control language mix (`mixed_vi_en` = Vietnamese + English).
+
 ### Hashtag strategy (3 tiers):
 
 **Tier 1 — High volume, broad (5 hashtags):**
 Niche-level tags that get massive search. Place first 3 here (shown above title).
+Start with `always_include_hashtags` from channel rules if available.
 ```
 #PhimTàiLiệu #QuânSự #HảiQuân
 ```
@@ -168,6 +191,8 @@ Highly specific tags with less competition — easier to rank.
 ## Step 6: Generate KEYWORDS (Tags)
 
 YouTube tags (different from hashtags) are hidden metadata. Max 500 characters total.
+
+**If channel rules loaded**: merge `seo.default_tags` (e.g., `["phim tài liệu", "quân sự", "lịch sử", ...]`) into the generated tag list. Place channel default tags first, then add video-specific tags. Deduplicate.
 
 ### Keyword research approach:
 
