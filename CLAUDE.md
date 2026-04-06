@@ -404,7 +404,7 @@ scripts/               — Seed/utility scripts
   statusline.sh        — Claude Code statusline script
 output/                — Generated video output
 youtube/
-  auth.py              — OAuth2 multi-channel auth (run: arch -arm64 python3 youtube/auth.py <channel>)
+  auth.py              — OAuth2 multi-channel auth (run: python3 youtube/auth.py <channel>)
   upload.py            — Upload with scheduling + channel rule validation
   channels/            — Per-channel config (local-only, gitignored)
     <channel_name>/
@@ -424,7 +424,7 @@ skills/                — AI agent skill definitions (invoked as /gla:<name>)
 ### Auth Flow
 
 1. Place `client_secrets.json` in `youtube/channels/<channel_name>/`
-2. Run: `arch -arm64 python3 youtube/auth.py <channel_name>`
+2. Run: `python3 youtube/auth.py <channel_name>` (macOS Apple Silicon: `arch -arm64 python3 youtube/auth.py <channel_name>`)
 3. Browser opens for Google OAuth consent (scopes: youtube.readonly + youtube.upload)
 4. Token saved to `token.json` — auto-refreshes on expiry
 

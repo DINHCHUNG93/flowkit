@@ -482,7 +482,8 @@ Automated upload with per-channel rules, SEO optimization, and brand watermarkin
 cp client_secrets.json youtube/channels/<channel_name>/
 
 # 2. Authenticate (opens browser)
-arch -arm64 python3 youtube/auth.py <channel_name>
+python3 youtube/auth.py <channel_name>              # Linux / Windows (WSL)
+arch -arm64 python3 youtube/auth.py <channel_name>  # macOS Apple Silicon
 
 # 3. Token saved to youtube/channels/<channel_name>/token.json (auto-refreshes)
 ```
