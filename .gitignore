@@ -3,3 +3,10 @@ __pycache__/
 *.db
 .env
 youtube
+
+# Generated AI tool configs (run: python setup.py)
+.claude/commands/gla:*
+.gemini/commands/
+AGENTS.md
+GEMINI.md
+.gla-setup.json

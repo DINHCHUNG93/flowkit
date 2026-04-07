@@ -33,9 +33,24 @@ Workflow skills for AI agents and humans. Each skill is a step-by-step recipe.
 | `gla:status` | [gla:status.md](gla:status.md) | Full project dashboard + next action |
 | `gla:fix-uuids` | [gla:fix-uuids.md](gla:fix-uuids.md) | Repair any CAMS... media_ids to UUID format |
 
-## For Claude Code users
+## Cross-Tool Compatibility
 
-These skills are also available as `/slash-commands` via `.claude/commands/` (e.g. `/gla:create-project`).
+Skills live in `skills/` — the single source of truth. Run `setup.py` to generate configs for your AI tool:
+
+```bash
+python setup.py           # Interactive setup
+python setup.py --tool all  # Generate for all tools
+python setup.py sync      # Re-sync after adding skills
+python setup.py clean     # Remove generated configs
+```
+
+| Tool | Generated Config | Instruction File | Invocation |
+|------|-----------------|------------------|------------|
+| Claude Code | `.claude/commands/gla:<name>.md` (stubs) | `CLAUDE.md` (committed) | `/gla:<name>` |
+| Gemini CLI | `.gemini/commands/gla/<name>.toml` | `GEMINI.md` (generated) | `/gla:<name>` |
+| Codex CLI | — | `AGENTS.md` (generated) | Read `skills/gla:<name>.md` |
+
+**Adding a new skill:** Create `skills/gla:<name>.md`, then run `python setup.py sync`.
 
 ---
 
