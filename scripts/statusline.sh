@@ -116,12 +116,12 @@ processing=$(jq 'length' "$TMP/processing" 2>/dev/null || echo 0)
 short_name=$(echo "$proj_name" | cut -c1-15)
 
 # Project slug (pure bash — strip diacritics via iconv, lowercase, underscores)
-proj_slug=$(echo "$proj_name" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -d '-' | tr -cd 'a-z0-9_')
+proj_slug=$(echo "$proj_name" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -d '-' | tr -cd 'a-z0-9_' | tr -s '_' | sed 's/^_//;s/_$//')
 
 # 4K downloaded count
 dl_count=0
 if [ -d "output/${proj_slug}/4k" ]; then
-  dl_count=$(ls "output/${proj_slug}/4k"/*.mp4 2>/dev/null | wc -l | tr -d ' ')
+  dl_count=$(ls "output/${proj_slug}/4k"/scene_*.mp4 2>/dev/null | wc -l | tr -d ' ')
 fi
 
 # TTS count
