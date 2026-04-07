@@ -40,11 +40,18 @@ mkdir -p "${OUTDIR}/4k" "${OUTDIR}/narrated" "${OUTDIR}/norm"
 ## Step 4: Download videos (skip if local file exists)
 
 ```bash
-# For each scene, check local first
-if [ -f "${OUTDIR}/4k/${SCENE_ID}.mp4" ]; then
-  cp "${OUTDIR}/4k/${SCENE_ID}.mp4" "${OUTDIR}/4k/scene_${IDX}.mp4"
+# IDX3 = zero-padded 3-digit display_order (e.g. 000, 001, ...)
+IDX3=$(printf "%03d" $DISPLAY_ORDER)
+CANONICAL="${OUTDIR}/4k/scene_${IDX3}_${SCENE_ID}.mp4"
+LEGACY="${OUTDIR}/4k/${SCENE_ID}.mp4"
+
+# For each scene, check local canonical name first, then legacy name
+if [ -f "$CANONICAL" ]; then
+  : # already present, skip download
+elif [ -f "$LEGACY" ]; then
+  cp "$LEGACY" "$CANONICAL"
 else
-  curl -L -o "${OUTDIR}/4k/scene_${IDX}.mp4" "${UPSCALE_URL_OR_VIDEO_URL}"
+  curl -L -o "$CANONICAL" "${UPSCALE_URL_OR_VIDEO_URL}"
 fi
 ```
 
@@ -62,12 +69,13 @@ Verify each download: `ffprobe` should return valid video stream.
 ### Option A: Without TTS (default)
 Preserve original video audio (sound effects from Google Flow):
 ```bash
-ffmpeg -y -i "scene_${IDX}.mp4" \
+# CANONICAL = "${OUTDIR}/4k/scene_${IDX3}_${SCENE_ID}.mp4" (set in Step 4)
+ffmpeg -y -i "$CANONICAL" \
   -c:v libx264 -preset fast -crf 18 \
   -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
   -r 24 -pix_fmt yuv420p \
   -c:a aac -b:a 192k \
-  -movflags +faststart "norm/scene_${IDX}.mp4"
+  -movflags +faststart "${OUTDIR}/norm/scene_${IDX3}_${SCENE_ID}.mp4"
 ```
 
 ### Option B: With TTS narration (`--with-tts`)
@@ -79,21 +87,21 @@ TTS_WAV="${OUTDIR}/tts/scene_${IDX3}_${SCENE_ID}.wav"
 
 if [ -f "$TTS_WAV" ]; then
   # MIX: video SFX at 30% volume + TTS narrator at 150% volume
-  ffmpeg -y -i "scene_${IDX}.mp4" -i "$TTS_WAV" \
+  ffmpeg -y -i "$CANONICAL" -i "$TTS_WAV" \
     -filter_complex "[0:a]volume=0.3[bg];[1:a]volume=1.5[fg];[bg][fg]amix=inputs=2:duration=first[aout]" \
     -map 0:v -map "[aout]" \
     -c:v libx264 -preset fast -crf 18 \
     -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" \
     -r 24 -pix_fmt yuv420p \
     -c:a aac -b:a 192k \
-    -movflags +faststart "narrated/scene_${IDX}.mp4"
+    -movflags +faststart "${OUTDIR}/narrated/scene_${IDX3}_${SCENE_ID}.mp4"
 else
   # No TTS for this scene — normalize with original audio only
-  ffmpeg -y -i "scene_${IDX}.mp4" \
+  ffmpeg -y -i "$CANONICAL" \
     -c:v libx264 -preset fast -crf 18 \
     -vf "scale=${W}:${H}" -r 24 -pix_fmt yuv420p \
     -c:a aac -b:a 192k \
-    -movflags +faststart "narrated/scene_${IDX}.mp4"
+    -movflags +faststart "${OUTDIR}/narrated/scene_${IDX3}_${SCENE_ID}.mp4"
 fi
 ```
 
@@ -103,12 +111,24 @@ fi
 
 ```bash
 # Use narrated/ if --with-tts, otherwise norm/
-SRC_DIR="narrated"  # or "norm"
+SRC_DIR="${OUTDIR}/narrated"  # or "${OUTDIR}/norm"
 
 > concat.txt
-for i in $(seq 0 $((NUM_SCENES-1))); do
-  idx=$(printf "%02d" $i)
-  echo "file '${SRC_DIR}/scene_${idx}.mp4'" >> concat.txt
+# scenes array must be sorted by display_order; each entry has display_order and id
+for scene in "${SCENES[@]}"; do
+  IDX3=$(printf "%03d" "${scene[display_order]}")
+  SCENE_ID="${scene[id]}"
+  CANONICAL_NORM="${SRC_DIR}/scene_${IDX3}_${SCENE_ID}.mp4"
+  # Fallback to legacy 2-digit name if canonical not found
+  LEGACY_NORM="${SRC_DIR}/scene_$(printf "%02d" ${scene[display_order]}).mp4"
+  if [ -f "$CANONICAL_NORM" ]; then
+    echo "file '$CANONICAL_NORM'" >> concat.txt
+  elif [ -f "$LEGACY_NORM" ]; then
+    echo "file '$LEGACY_NORM'" >> concat.txt
+  else
+    echo "ERROR: missing normalized file for scene ${IDX3}_${SCENE_ID}" >&2
+    exit 1
+  fi
 done
 
 ffmpeg -y -f concat -safe 0 -i concat.txt -c copy -movflags +faststart \

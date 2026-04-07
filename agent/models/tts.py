@@ -27,6 +27,8 @@ class NarrateVideoRequest(BaseModel):
     template: Optional[str] = Field(None, pattern=r"^[a-zA-Z0-9_-]{1,64}$")  # Voice template name
     mix: bool = True
     sfx_volume: float = Field(0.4, ge=0.0, le=2.0)
+    from_scene: Optional[int] = Field(None, ge=0)  # Start display_order (inclusive)
+    to_scene: Optional[int] = Field(None, ge=0)    # End display_order (inclusive)
 
 
 class SceneNarrationResult(BaseModel):

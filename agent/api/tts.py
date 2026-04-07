@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from agent.config import TTS_TEMPLATES_DIR, SHARED_OUTPUT_DIR, OUTPUT_DIR
+from agent.utils.slugify import slugify
 from agent.db.crud import get_video, list_scenes, get_project
 from agent.models.tts import (
     TTSGenerateRequest,
@@ -109,6 +110,15 @@ async def narrate_video(vid: str, body: NarrateVideoRequest):
     if not scenes:
         raise HTTPException(404, "No scenes found for video")
 
+    # Filter by scene range if specified
+    if body.from_scene is not None or body.to_scene is not None:
+        lo = body.from_scene if body.from_scene is not None else 0
+        hi = body.to_scene if body.to_scene is not None else float("inf")
+        scenes = [s for s in scenes if lo <= s.get("display_order", 0) <= hi]
+        if not scenes:
+            raise HTTPException(404, f"No scenes in range {lo}-{hi}")
+        logger.info("Filtered to scenes %d-%d (%d scenes)", lo, int(hi), len(scenes))
+
     # Check batch size cap
     scenes_with_text = [s for s in scenes if s.get("narrator_text")]
     if len(scenes_with_text) > MAX_NARRATE_SCENES:
@@ -136,9 +146,12 @@ async def narrate_video(vid: str, body: NarrateVideoRequest):
                 logger.info("Auto-resolved ref_text from template '%s'", tmpl["name"])
                 break
 
-    # TODO: move to OUTPUT_DIR / slugify(project_name) / "tts" once output-dir endpoint is integrated
-    out_dir = OUTPUT_DIR / vid
+    project_name = project.get("name") or "unnamed_project"
+    project_slug = slugify(project_name)
+    out_dir = OUTPUT_DIR / project_slug / "tts"
     out_dir.mkdir(parents=True, exist_ok=True)
+    narrated_dir = OUTPUT_DIR / project_slug / "narrated"
+    narrated_dir.mkdir(parents=True, exist_ok=True)
 
     async with _TTS_SEMAPHORE:
         raw_results = await generate_video_narration(
@@ -171,7 +184,7 @@ async def narrate_video(vid: str, body: NarrateVideoRequest):
                 video_url_key = f"{orientation.lower()}_video_url"
                 video_path = scene_data.get(video_url_key)
                 if video_path and Path(video_path).exists():
-                    mixed_path = str(out_dir / f"scene_{r['display_order']:03d}_{r['scene_id']}_mixed.mp4")
+                    mixed_path = str(narrated_dir / f"scene_{r['display_order']:03d}_{r['scene_id']}_mixed.mp4")
                     ok = add_narration(
                         video_path=video_path,
                         narration_path=r["audio_path"],

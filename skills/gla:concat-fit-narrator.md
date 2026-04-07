@@ -21,9 +21,10 @@ Sort scenes by `display_order`.
 For each scene (sorted by display_order, index = IDX starting at 0):
 
 **Video source** (priority order):
-1. `${OUTDIR}/4k/{scene_id}.mp4` (local 4K rawBytes — best quality)
-2. `horizontal_upscale_url` or `vertical_upscale_url` (4K signed URL)
-3. `horizontal_video_url` or `vertical_video_url` (standard quality)
+1. `${OUTDIR}/4k/scene_${IDX3}_${scene_id}.mp4` (canonical local 4K — best quality)
+2. `${OUTDIR}/4k/${scene_id}.mp4` (legacy local 4K fallback)
+3. `horizontal_upscale_url` or `vertical_upscale_url` (4K signed URL)
+4. `horizontal_video_url` or `vertical_video_url` (standard quality)
 
 **TTS source:**
 1. `${OUTDIR}/tts/scene_{IDX3}_{scene_id}.wav`
@@ -51,10 +52,10 @@ Print a table before processing:
 ```
 Scene | TTS Duration | Cut Duration | Video Source
 ------|-------------|-------------|-------------
-  000 |       6.30s |       6.80s | 4k_raw/8fdb...mp4
-  001 |       5.86s |       6.36s | 4k_raw/4151...mp4
-  002 |       5.63s |       6.13s | 4k_raw/faeb...mp4
-  003 |       3.95s |       4.45s | 4k_raw/d6ba...mp4
+  000 |       6.30s |       6.80s | 4k/scene_000_8fdb...mp4
+  001 |       5.86s |       6.36s | 4k/scene_001_4151...mp4
+  002 |       5.63s |       6.13s | 4k/scene_002_faeb...mp4
+  003 |       3.95s |       4.45s | 4k/scene_003_d6ba...mp4
   ...
 Total estimated duration: XXXs (vs 320s at 8s each)
 ```
@@ -94,7 +95,7 @@ ffmpeg -y -ss 1 -i "$VIDEO_FILE" -i "$TTS_WAV" \
   -r 24 -pix_fmt yuv420p \
   -c:a aac -b:a 192k \
   -movflags +faststart \
-  "${OUTDIR}/trimmed/scene_${IDX}.mp4"
+  "${OUTDIR}/trimmed/scene_${IDX3}_${SCENE_ID}.mp4"
 ```
 
 **Key flags:**
@@ -115,7 +116,7 @@ ffmpeg -y -i "$VIDEO_FILE" \
   -r 24 -pix_fmt yuv420p \
   -c:a aac -b:a 192k \
   -movflags +faststart \
-  "${OUTDIR}/trimmed/scene_${IDX}.mp4"
+  "${OUTDIR}/trimmed/scene_${IDX3}_${SCENE_ID}.mp4"
 ```
 
 **CRITICAL: Do NOT use `-an`. Always preserve audio.**
@@ -124,9 +125,21 @@ ffmpeg -y -i "$VIDEO_FILE" \
 
 ```bash
 > concat_trimmed.txt
-for i in $(seq 0 $((NUM_SCENES-1))); do
-  idx=$(printf "%02d" $i)
-  echo "file '${OUTDIR}/trimmed/scene_${idx}.mp4'" >> concat_trimmed.txt
+# scenes array must be sorted by display_order; each entry has display_order and id
+for scene in "${SCENES[@]}"; do
+  IDX3=$(printf "%03d" "${scene[display_order]}")
+  SCENE_ID="${scene[id]}"
+  CANONICAL_TRIM="${OUTDIR}/trimmed/scene_${IDX3}_${SCENE_ID}.mp4"
+  # Fallback to legacy 2-digit name if canonical not found
+  LEGACY_TRIM="${OUTDIR}/trimmed/scene_$(printf "%02d" ${scene[display_order]}).mp4"
+  if [ -f "$CANONICAL_TRIM" ]; then
+    echo "file '$CANONICAL_TRIM'" >> concat_trimmed.txt
+  elif [ -f "$LEGACY_TRIM" ]; then
+    echo "file '$LEGACY_TRIM'" >> concat_trimmed.txt
+  else
+    echo "ERROR: missing trimmed file for scene ${IDX3}_${SCENE_ID}" >&2
+    exit 1
+  fi
 done
 
 ffmpeg -y -f concat -safe 0 -i concat_trimmed.txt -c copy -movflags +faststart \

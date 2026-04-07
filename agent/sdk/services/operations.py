@@ -18,6 +18,8 @@ import aiohttp
 
 from agent.db import crud
 from agent.config import VIDEO_POLL_INTERVAL, VIDEO_POLL_TIMEOUT
+from agent.utils.paths import scene_4k_path
+from agent.utils.slugify import slugify
 from agent.worker._parsing import (
     _is_error,
     _is_uuid,
@@ -43,10 +45,10 @@ def _reference_aspect_ratio(entity_type: str) -> str:
     return "IMAGE_ASPECT_RATIO_PORTRAIT"
 
 
-def _save_raw_bytes(operations: list[dict], scene_id: str, project_id: str) -> str | None:
+def _save_raw_bytes(
+    operations: list[dict], scene_id: str, project_slug: str, display_order: int
+) -> str | None:
     """If operations contain rawBytes (inline 4K video), save to disk and return path."""
-    import pathlib
-    _PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
     for op in operations:
         raw_b64 = op.get("rawBytes")
         if not raw_b64:
@@ -57,10 +59,8 @@ def _save_raw_bytes(operations: list[dict], scene_id: str, project_id: str) -> s
             continue
         try:
             video_data = base64.b64decode(raw_b64)
-            # TODO: move to output/{project_slug}/4k/ once output-dir endpoint is integrated
-            out_dir = _PROJECT_ROOT / "output" / "4k_raw"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / f"{scene_id}.mp4"
+            path = scene_4k_path(project_slug, display_order, scene_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(video_data)
             logger.info("Saved rawBytes 4K video: %s (%d bytes)", path, len(video_data))
             return str(path)
@@ -432,7 +432,10 @@ class OperationService:
             return {"error": "Upscale returned no operations"}
 
         # Check for inline rawBytes (4K video data returned directly)
-        raw_path = _save_raw_bytes(operations, scene.get("id", ""), scene.get("_project_id", ""))
+        project = await crud.get_project(scene.get("_project_id", "0"))
+        project_slug = slugify(project.get("name", "unnamed")) if project else slugify(scene.get("_project_id", "unnamed"))
+        display_order = scene.get("display_order", 0)
+        raw_path = _save_raw_bytes(operations, scene.get("id", ""), project_slug, display_order)
         if raw_path:
             logger.info("Upscale returned inline 4K video, saved to %s", raw_path)
             # Inject saved path into result for downstream parsing
@@ -460,7 +463,7 @@ class OperationService:
         poll_data = poll_result.get("data", poll_result)
         poll_ops = poll_data.get("operations", [])
         if poll_ops:
-            raw_path = _save_raw_bytes(poll_ops, scene.get("id", ""), scene.get("_project_id", ""))
+            raw_path = _save_raw_bytes(poll_ops, scene.get("id", ""), project_slug, display_order)
             if raw_path:
                 logger.info("Poll returned inline 4K video, saved to %s", raw_path)
                 poll_ops[0].setdefault("operation", {}).setdefault("metadata", {}).setdefault("video", {})["fifeUrl"] = raw_path

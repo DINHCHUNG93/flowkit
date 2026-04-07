@@ -1,6 +1,5 @@
 import json
 import logging
-import pathlib
 import re
 from datetime import datetime, timezone
 
@@ -310,8 +309,6 @@ async def get_output_dir(pid: str):
     return {"slug": slug, "path": f"output/{slug}", "meta": meta}
 
 
-_PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
-
 _ASPECT_RATIO_MAP = {
     "LANDSCAPE": "IMAGE_ASPECT_RATIO_LANDSCAPE",
     "PORTRAIT": "IMAGE_ASPECT_RATIO_PORTRAIT",
@@ -395,9 +392,9 @@ async def generate_thumbnail(pid: str, body: ThumbnailRequest):
     if not gen_result.success:
         raise HTTPException(502, gen_result.error or "Image generation failed")
 
-    # Download and save to output/{project_name}/{filename}
-    project_name = re.sub(r"[^\w\s-]", "", getattr(project, "name", "project")).strip().replace(" ", "_").lower()
-    out_dir = _PROJECT_ROOT / "output" / project_name
+    # Download and save to output/{project_name}/thumbnails/{filename}
+    project_name = slugify(getattr(project, "name", "project"))
+    out_dir = BASE_DIR / "output" / project_name / "thumbnails"
     out_dir.mkdir(parents=True, exist_ok=True)
     output_path = out_dir / body.output_filename
 

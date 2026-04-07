@@ -150,6 +150,11 @@ async def generate_video_narration(
             continue
 
         wav_path = str(out_dir / f"scene_{display_order:03d}_{scene_id}.wav")
+        # Skip if WAV already exists and is non-trivial (>1KB)
+        if Path(wav_path).exists() and Path(wav_path).stat().st_size > 1024:
+            logger.info("Skipping scene %03d (WAV exists: %s)", display_order, wav_path)
+            scene_map[scene_id] = {"display_order": display_order, "narrator_text": narrator_text, "skipped": True, "wav_path": wav_path}
+            continue
         items.append({"id": scene_id, "text": narrator_text, "output": wav_path})
         scene_map[scene_id] = {"display_order": display_order, "narrator_text": narrator_text}
 
@@ -193,6 +198,19 @@ async def generate_video_narration(
             })
             continue
 
+        sm = scene_map.get(scene_id, {})
+        if sm.get("skipped"):
+            results.append({
+                "scene_id": scene_id,
+                "display_order": display_order,
+                "narrator_text": narrator_text,
+                "audio_path": sm["wav_path"],
+                "duration": None,
+                "status": "COMPLETED",
+                "error": None,
+            })
+            continue
+
         br = batch_results.get(scene_id, {})
         if br.get("ok"):
             results.append({
@@ -220,7 +238,7 @@ async def generate_video_narration(
 
 def _run_batch_subprocess(args: dict) -> list[dict]:
     """Run batch TTS subprocess. Model loads once."""
-    timeout = 60 + len(args.get("items", [])) * 15  # ~15s per scene
+    timeout = 180 + len(args.get("items", [])) * 45  # ~180s model load + ~45s per scene
     proc = subprocess.run(
         [PYTHON_BIN, "-c", _TTS_BATCH_SCRIPT, json.dumps(args)],
         capture_output=True, text=True, timeout=timeout,

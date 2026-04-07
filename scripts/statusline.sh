@@ -116,7 +116,7 @@ processing=$(jq 'length' "$TMP/processing" 2>/dev/null || echo 0)
 short_name=$(echo "$proj_name" | cut -c1-15)
 
 # Project slug (pure bash — strip diacritics via iconv, lowercase, underscores)
-proj_slug=$(echo "$proj_name" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -d '-' | tr -cd 'a-z0-9_' | tr -s '_' | sed 's/^_//;s/_$//')
+proj_slug=$(echo "$proj_name" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | tr -s '_' | sed 's/^_//;s/_$//')
 
 # 4K downloaded count
 dl_count=0
