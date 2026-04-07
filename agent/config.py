@@ -65,6 +65,14 @@ REVIEW_FPS_LIGHT = float(os.environ.get("REVIEW_FPS_LIGHT", "4"))
 REVIEW_FPS_DEEP = float(os.environ.get("REVIEW_FPS_DEEP", "8"))
 REVIEW_MAX_FRAMES = int(os.environ.get("REVIEW_MAX_FRAMES", "64"))
 
+# ─── Suno (Music Generation) ────────────────────────────────
+SUNO_API_KEY = os.environ.get("SUNO_API_KEY", "")
+SUNO_BASE_URL = os.environ.get("SUNO_BASE_URL", "https://studio-api.suno.ai")
+SUNO_MODEL = os.environ.get("SUNO_MODEL", "chirp-v4")
+SUNO_POLL_INTERVAL = int(os.environ.get("SUNO_POLL_INTERVAL", "5"))
+SUNO_POLL_TIMEOUT = int(os.environ.get("SUNO_POLL_TIMEOUT", "300"))
+SUNO_OUTPUT_DIR = BASE_DIR / "output" / "music"
+
 # ─── Header Randomization Pools ─────────────────────────────
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
