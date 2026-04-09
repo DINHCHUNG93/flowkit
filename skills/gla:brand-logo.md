@@ -69,6 +69,35 @@ done
 
 Thumbnail icon is always 72x72 (1280x720 images).
 
+## Step 4b: Apply 4K icon (if exists)
+
+Check for a 4K badge icon at:
+```
+youtube/channels/<channel_name>/4k_icon.png
+```
+
+**If file exists AND source video is 4K (width >= 3840):** overlay the 4K icon at the **top-right** corner.
+
+| Resolution | Icon Size | Position | Notes |
+|-----------|-----------|----------|-------|
+| 3840x2160 (4K) | 180px height (auto-width) | `overlay=W-w-40:40` | Top-right, 40px pad |
+| 1920x1080 (1080p) | 100px height (auto-width) | `overlay=W-w-24:24` | Scaled proportionally |
+
+**Skip if:** no `4k_icon.png` found, or source video is not 4K.
+
+```bash
+ICON_4K="youtube/channels/<channel_name>/4k_icon.png"
+if [ -f "$ICON_4K" ] && [ "$RES" -ge 3840 ]; then
+  ffmpeg -y -i "${VIDEO%.mp4}_branded.mp4" -i "$ICON_4K" \
+    -filter_complex "[1:v]scale=-1:180,format=rgba[icon4k];[0:v][icon4k]overlay=W-w-40:40" \
+    -c:v libx264 -preset fast -crf 18 -r 24 -pix_fmt yuv420p \
+    -c:a copy -movflags +faststart \
+    "${VIDEO%.mp4}_branded_4k.mp4"
+fi
+```
+
+Output: `*_branded_4k.mp4` (with both brand logo bottom-right + 4K badge top-right).
+
 ## Step 5: Verify
 
 ```bash
@@ -84,7 +113,8 @@ Brand icon applied: <channel_name>
   Video: <output_path>
   Duration: X:XX
   Resolution: WxH
-  Icon: <size>x<size> at bottom-right
+  Brand logo: <size>x<size> at bottom-right
+  4K badge: 180px at top-right (if applied)
   Size: XXX MB
 ```
 
@@ -95,6 +125,7 @@ youtube/
   channels/
     chiensudachieu/
       chiensudachieu_icon.png    # Channel brand logo (square, transparent bg recommended)
+      4k_icon.png                # Optional 4K badge (auto-applied to top-right for 4K videos)
     another_channel/
       another_channel_icon.png
 ```
