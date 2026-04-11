@@ -110,7 +110,7 @@ Camera stays behind. Viewers see the leader's power through body language, not f
 curl -X POST http://127.0.0.1:8100/api/projects \
   -H "Content-Type: application/json" \
   -d '{"name": "...", "description": "...", "story": "...", "material": "3d_pixar", "characters": [
-    {"name": "...", "entity_type": "character", "description": "..."},
+    {"name": "...", "entity_type": "character", "description": "...", "voice_description": "Deep calm voice, speaks slowly with confidence"},
     {"name": "...", "entity_type": "location", "description": "..."},
     {"name": "...", "entity_type": "visual_asset", "description": "..."}
   ]}'
@@ -161,11 +161,41 @@ curl -X POST http://127.0.0.1:8100/api/scenes \
 | `"cinematic scene"` | `"Wide shot, low angle, Luna small against vast Candy Planet landscape, cotton candy clouds"` | Buzzword → specific camera + composition |
 
 **Anti-patterns:**
-- Never describe character appearance (eyes, hair, clothing) — reference images handle that
+- **NEVER describe character appearance** (eyes, hair, clothing, outfit) in `prompt` or `video_prompt` — reference images handle visual consistency via `imageInputs`. Write ACTION only.
 - Never use single-word or atmosphere-only prompts: `"epic"`, `"dramatic"`, `"cinematic"`
 - Always include a camera/composition cue at the end
+- All `prompt`, `video_prompt`, and `image_prompt` MUST be in English regardless of project language
+
+**`voice_description`** on characters (max ~30 words) — auto-appended to video prompts by the worker. Dialogue tone must match voice profile. Example: `"Deep calm heroic voice, speaks slowly with confidence"`.
 
 See `gla:camera-guide.md` for full camera language reference.
+
+---
+
+### Safe Prompt Language (avoid UNSAFE_GENERATION)
+
+Google Flow's AI filter rejects prompts with violent, aggressive, or graphic language. NEVER use these words in `prompt`, `video_prompt`, `image_prompt`, or `description`:
+
+| Blocked word/phrase | Safe alternative |
+|---|---|
+| attack, strike, bomb, missile | operation, strategic action, military maneuver |
+| kill, dead, death, casualty | fall, loss, aftermath |
+| explosion, blast, detonate | bright flash, impact, shockwave |
+| destroy, devastate, annihilate | damage, impact, disrupt |
+| blood, wound, injury, gore | dust, debris, aftermath |
+| chaos, carnage, massacre | turmoil, aftermath, tense scene |
+| aggressive, threaten, menace | determined, resolute, firm, intense |
+| pointing aggressively | gesturing firmly, addressing with authority |
+| overwhelmed hospital | busy medical facility, emergency room at capacity |
+| rubble, ruins, burning | damaged structures, smoke, haze, reconstruction |
+| war room | situation room, command center |
+| target markers | strategic markers, location indicators |
+| gun, rifle, weapon (pointed) | holstered sidearm, military equipment (neutral) |
+| angry, furious, rage | stern, intense, focused, resolute |
+| hostage, torture, prisoner | detainee, negotiations, diplomatic standoff |
+| corpse, body bags | memorial, tribute, remembrance |
+
+**Principle:** describe *atmosphere and tension* cinematically, not violence directly. Frame military/conflict through strategy, diplomacy, and human emotion. Entity descriptions: appearance, clothing, posture only — never graphic.
 
 ---
 

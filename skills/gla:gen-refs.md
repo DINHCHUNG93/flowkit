@@ -17,7 +17,11 @@ Must have `extension_connected: true`. Abort if not.
 curl -s http://127.0.0.1:8100/api/projects/<PID>/characters
 ```
 
-Filter to entities that do NOT yet have `media_id` (UUID format). Skip ones already done.
+Filter to entities that do NOT yet have `media_id` (UUID format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). Never use `CAMS...` strings — those are `mediaGenerationId`, not `media_id`. Skip entities already done.
+
+**Orientation by entity type:** characters, creatures, visual_assets, generic_troops, factions → **portrait**. Locations → **landscape**. The worker handles this automatically based on `entity_type`.
+
+**GENERATE vs REGENERATE:** `GENERATE_CHARACTER_IMAGE` skips if `media_id` already exists. Use `REGENERATE_CHARACTER_IMAGE` to force a fresh generation (clears existing image first).
 
 ## Step 3: Submit ALL requests at once
 

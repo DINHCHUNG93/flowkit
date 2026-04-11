@@ -62,3 +62,8 @@ Print results table:
 |-------|-------|-------------|---------------|-----------|
 
 Print: "All videos ready. Run /gla:concat <VID> to download and merge."
+
+## Important rules
+
+- **GENERATE vs REGENERATE:** `GENERATE_VIDEO` skips scenes already `COMPLETED`. To force-regenerate, submit a new request (cascades: clears upscale status).
+- **Cascade on regen:** Regenerating a video auto-clears the upscale status for that scene.

@@ -77,3 +77,9 @@ Print results table:
 |-------|-------|-------------|----------------|
 
 Print: "All scene images ready. Run /gla:gen-videos <PID> <VID> to generate videos."
+
+## Important rules
+
+- **GENERATE vs REGENERATE:** `GENERATE_IMAGE` skips scenes already `COMPLETED`. Use `REGENERATE_IMAGE` to force a fresh generation.
+- **Cascade on regen:** `REGENERATE_IMAGE` auto-clears downstream video + upscale status for that scene.
+- **EDIT_IMAGE:** auto-resolves `character_names` from the scene → sends as `imageInputs` after the base image `[base_image, char_A, char_B, ...]` for character consistency. Same for `EDIT_CHARACTER_IMAGE`.
