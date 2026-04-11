@@ -43,6 +43,7 @@ class SQLiteRepository(Repository):
         return Character(
             id=row.get("id", ""),
             name=row.get("name", ""),
+            slug=row.get("slug"),
             entity_type=row.get("entity_type", "character"),
             description=row.get("description"),
             image_prompt=row.get("image_prompt"),
@@ -220,9 +221,12 @@ class SQLiteRepository(Repository):
         return self._row_to_character(row) if row else None
 
     async def save_character(self, character: Character) -> None:
+        from agent.utils.slugify import slugify
+        character.slug = slugify(character.name)
         await crud.update_character(
             character.id,
             name=character.name,
+            slug=character.slug,
             entity_type=character.entity_type,
             description=character.description,
             image_prompt=character.image_prompt,
@@ -241,6 +245,7 @@ class SQLiteRepository(Repository):
         voice_description: Optional[str] = None,
         reference_image_url: Optional[str] = None,
         media_id: Optional[str] = None,
+        slug: Optional[str] = None,
     ) -> Character:
         row = await crud.create_character(
             name=name,
@@ -250,6 +255,7 @@ class SQLiteRepository(Repository):
             voice_description=voice_description,
             reference_image_url=reference_image_url,
             media_id=media_id,
+            slug=slug,
         )
         return self._row_to_character(row)
 

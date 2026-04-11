@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from agent.models.character import Character, CharacterCreate, CharacterUpdate
 from agent.sdk.persistence.sqlite_repository import SQLiteRepository
+from agent.utils.slugify import slugify
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -34,7 +35,10 @@ async def get(cid: str):
 @router.patch("/{cid}", response_model=Character)
 async def update(cid: str, body: CharacterUpdate):
     repo = _get_repo()
-    row = await repo.update("character", cid, **body.model_dump(exclude_unset=True))
+    updates = body.model_dump(exclude_unset=True)
+    if "name" in updates:
+        updates["slug"] = slugify(updates["name"])
+    row = await repo.update("character", cid, **updates)
     if not row:
         raise HTTPException(404, "Character not found")
     return repo._row_to_character(row)

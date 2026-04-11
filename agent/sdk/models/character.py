@@ -19,6 +19,7 @@ class Character(DomainModel):
     _table: str = field(default="character", init=False, repr=False, compare=False)
 
     name: str = ""
+    slug: Optional[str] = None
     entity_type: str = "character"
     description: Optional[str] = None
     image_prompt: Optional[str] = None
@@ -40,6 +41,7 @@ class Character(DomainModel):
         return {
             "id": self.id,
             "name": self.name,
+            "slug": self.slug,
             "entity_type": self.entity_type,
             "description": self.description,
             "image_prompt": self.image_prompt,

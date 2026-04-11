@@ -147,10 +147,10 @@ async def create(body: ProjectCreate):
     # Validate characters before any API calls to avoid orphan projects
     characters_input_raw = body.model_dump(exclude_none=True).get("characters")
     if characters_input_raw:
-        names = [c["name"] for c in characters_input_raw]
-        if len(names) != len(set(names)):
-            dupes = [n for n in names if names.count(n) > 1]
-            raise HTTPException(400, f"Duplicate character names: {list(set(dupes))}")
+        slugs = [slugify(c["name"]) for c in characters_input_raw]
+        if len(slugs) != len(set(slugs)):
+            dupes = [s for s in slugs if slugs.count(s) > 1]
+            raise HTTPException(400, f"Duplicate character slugs: {list(set(dupes))}")
 
     detected_tier = await _detect_user_tier(client)
 
@@ -201,6 +201,7 @@ async def create(body: ProjectCreate):
             image_prompt = profile["image_prompt"]
             char = await repo.create_character(
                 name=char_input["name"],
+                slug=slugify(char_input["name"]),
                 entity_type=etype,
                 description=description,
                 image_prompt=image_prompt,
@@ -369,7 +370,8 @@ async def generate_thumbnail(pid: str, body: ThumbnailRequest):
         for entity in entities:
             name = entity["name"] if isinstance(entity, dict) else entity.name
             mid = entity.get("media_id") if isinstance(entity, dict) else getattr(entity, "media_id", None)
-            if name not in body.character_names:
+            char_slug = (entity.get("slug") if isinstance(entity, dict) else getattr(entity, "slug", None)) or ""
+            if not ((char_slug and char_slug in body.character_names) or (name and name in body.character_names)):
                 continue
             if mid:
                 valid_ids.append(mid)

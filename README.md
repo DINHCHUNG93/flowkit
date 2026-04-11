@@ -294,7 +294,6 @@ Ready-to-use workflow recipes in `skills/` (also available as `/slash-commands` 
 | Skill | Description |
 |-------|-------------|
 | `/gla:gen-tts-template` | Create a voice template for consistent narration |
-| `/gla:gen-tts` | Generate TTS audio for scenes |
 | `/gla:gen-narrator` | Generate narrator text + TTS for all scenes |
 | `/gla:concat-fit-narrator` | Trim scene videos to fit narrator duration, then concat |
 

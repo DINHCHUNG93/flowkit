@@ -337,7 +337,9 @@ async def _analyze_sdk(
 
     content = []
     for char in characters:
-        if char.get("reference_image_url") and char.get("name") in character_names:
+        slug = char.get("slug") or ""
+        name = char.get("name", "")
+        if char.get("reference_image_url") and ((slug and slug in character_names) or (name and name in character_names)):
             content.append({"type": "text", "text": f"Character reference -- {char['name']}:"})
             content.append({"type": "image", "source": {"type": "url", "url": char["reference_image_url"]}})
     if content:
@@ -477,9 +479,13 @@ async def review_video(
     project_id: str,
     mode: str = "light",
     orientation: str = "VERTICAL",
+    scene_ids: list[str] | None = None,
 ) -> VideoReview:
-    """Review all scenes in a video."""
+    """Review all scenes (or a subset by scene_ids) in a video."""
     scenes = await list_scenes(video_id)
+    if scene_ids:
+        id_set = set(scene_ids)
+        scenes = [s for s in scenes if s["id"] in id_set]
     characters = await get_project_characters(project_id)
 
     orient_prefix = "vertical" if orientation.upper() == "VERTICAL" else "horizontal"

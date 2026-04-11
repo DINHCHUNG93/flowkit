@@ -26,13 +26,15 @@ def resolve_references(character_names: list[str], project_chars: list[dict]) ->
     missing_refs: list[str] = []
 
     for char in project_chars:
-        if char["name"] not in name_set:
+        slug = char.get("slug") or ""
+        name = char.get("name", "")
+        if not ((slug and slug in name_set) or (name and name in name_set)):
             continue
         mid = char.get("media_id")
         if mid:
             valid_ids.append(mid)
         else:
-            missing_refs.append(char["name"])
+            missing_refs.append(slug or name)
 
     if missing_refs:
         raise ValueError(f"Waiting for reference images: {', '.join(missing_refs)}")

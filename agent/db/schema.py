@@ -13,6 +13,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS character (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
+    slug        TEXT,  -- auto-generated from name via slugify()
     entity_type TEXT NOT NULL DEFAULT 'character' CHECK(entity_type IN ('character','location','creature','visual_asset','generic_troop','faction')),
     description TEXT,
     image_prompt TEXT,
@@ -162,6 +163,21 @@ async def init_db():
         await db.execute("PRAGMA journal_mode=WAL")
         await db.execute("PRAGMA foreign_keys=ON")
         await db.executescript(SCHEMA)
+        # Migration: add slug column to character table + backfill
+        cursor = await db.execute("PRAGMA table_info(character)")
+        columns = {row[1] for row in await cursor.fetchall()}
+        if "slug" not in columns:
+            await db.execute("ALTER TABLE character ADD COLUMN slug TEXT")
+            logger.info("Migrated: added slug column to character table")
+        # Backfill slugs for existing characters (Python-side since SQLite has no slugify)
+        cursor = await db.execute("SELECT id, name FROM character WHERE slug IS NULL OR slug = ''")
+        chars_without_slug = await cursor.fetchall()
+        if chars_without_slug:
+            from agent.utils.slugify import slugify as _slugify
+            for row in chars_without_slug:
+                _slug = _slugify(row[1])
+                await db.execute("UPDATE character SET slug=? WHERE id=?", (_slug, row[0]))
+            logger.info("Backfilled slug for %d characters", len(chars_without_slug))
         # Migration: add voice_description if missing (added after initial schema)
         cursor = await db.execute("PRAGMA table_info(character)")
         columns = {row[1] for row in await cursor.fetchall()}
@@ -288,6 +304,9 @@ async def get_db() -> aiosqlite.Connection:
         _db_connection.row_factory = aiosqlite.Row
         await _db_connection.execute("PRAGMA journal_mode=WAL")
         await _db_connection.execute("PRAGMA foreign_keys=ON")
+        # Force WAL checkpoint so this connection sees all committed writes
+        # from previous processes (e.g. after hot-reload)
+        await _db_connection.execute("PRAGMA wal_checkpoint(PASSIVE)")
     return _db_connection
 
 

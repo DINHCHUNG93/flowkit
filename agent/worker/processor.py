@@ -414,7 +414,18 @@ async def _handle_failure(rid: str, req: dict, result: dict, retry_after: dict =
         data = result.get("data", {})
         if isinstance(data, dict):
             ef = data.get("error", "Unknown error")
-            error_msg = ef.get("message", json.dumps(ef)[:200]) if isinstance(ef, dict) else str(ef)
+            if isinstance(ef, dict):
+                error_msg = ef.get("message", json.dumps(ef)[:200])
+                # Extract detailed reason from error details (e.g. PUBLIC_ERROR_UNSAFE_GENERATION)
+                details = ef.get("details", [])
+                if details and isinstance(details, list):
+                    for d in details:
+                        reason = d.get("reason") if isinstance(d, dict) else None
+                        if reason:
+                            error_msg = f"{error_msg} [{reason}]"
+                            break
+            else:
+                error_msg = str(ef)
         else:
             error_msg = "Unknown error"
     if isinstance(error_msg, dict):

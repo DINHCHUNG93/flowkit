@@ -14,6 +14,13 @@ import logging
 import ssl
 from typing import TYPE_CHECKING, Optional
 
+
+def _char_matches(c: dict, name_set: set) -> bool:
+    """Check if a character matches any name in the set by slug OR display name."""
+    slug = c.get("slug") or ""
+    name = c.get("name", "")
+    return (slug and slug in name_set) or (name and name in name_set)
+
 import aiohttp
 
 from agent.db import crud
@@ -177,14 +184,15 @@ class OperationService:
                 project_chars = await crud.get_project_characters(pid)
                 valid_ids = []
                 missing_refs = []
+                char_names_set = set(char_names_raw)
                 for c in project_chars:
-                    if c["name"] not in char_names_raw:
+                    if not _char_matches(c, char_names_set):
                         continue
                     mid = c.get("media_id")
                     if mid:
                         valid_ids.append(mid)
                     else:
-                        missing_refs.append(c["name"])
+                        missing_refs.append(c.get("slug") or c["name"])
 
                 if missing_refs:
                     return {"error": f"Waiting for reference images: {', '.join(missing_refs)}"}
@@ -238,8 +246,9 @@ class OperationService:
             if isinstance(char_names_raw, list) and char_names_raw:
                 project_chars = await crud.get_project_characters(pid)
                 valid_ids = []
+                char_names_set = set(char_names_raw)
                 for c in project_chars:
-                    if c["name"] in char_names_raw and c.get("media_id"):
+                    if _char_matches(c, char_names_set) and c.get("media_id"):
                         valid_ids.append(c["media_id"])
                 char_media_ids = valid_ids if valid_ids else None
 
@@ -336,8 +345,9 @@ class OperationService:
 
         project_chars = await crud.get_project_characters(pid)
         ref_ids = []
+        char_names_set = set(char_names_raw)
         for c in project_chars:
-            if c["name"] not in char_names_raw:
+            if not _char_matches(c, char_names_set):
                 continue
             mid = c.get("media_id")
             if mid:
@@ -697,9 +707,10 @@ async def _build_video_prompt(base_prompt: str, scene: dict, project_id: str | N
                 char_names_raw = []
         if isinstance(char_names_raw, list) and char_names_raw:
             project_chars = await crud.get_project_characters(project_id)
+            char_names_set = set(char_names_raw)
             voices = []
             for c in project_chars:
-                if c["name"] in char_names_raw and c.get("voice_description"):
+                if _char_matches(c, char_names_set) and c.get("voice_description"):
                     voices.append(f"{c['name']}: {c['voice_description']}")
             if voices:
                 parts.append("Character voices: " + ". ".join(voices) + ".")

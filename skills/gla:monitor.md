@@ -411,5 +411,5 @@ Print a compact status line to console each cycle so progress is visible:
 |----------|------------|
 | All videos done, no 4K | `/gla:concat` |
 | All 4K downloaded | `/gla:concat --4k` |
-| Need narration first | `/gla:gen-tts` → `/gla:concat --with-tts` |
+| Need narration first | `/gla:gen-narrator` → `/gla:concat --with-tts` |
 | Upload to YouTube | `/gla:youtube-seo` → `/gla:youtube-upload` |

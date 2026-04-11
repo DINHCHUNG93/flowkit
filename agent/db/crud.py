@@ -17,7 +17,7 @@ def _validate_table(table: str) -> None:
 
 # Column whitelists per table — prevents SQL injection via kwargs keys
 _COLUMNS = {
-    "character": {"name", "entity_type", "description", "image_prompt", "voice_description", "reference_image_url", "media_id", "updated_at"},
+    "character": {"name", "slug", "entity_type", "description", "image_prompt", "voice_description", "reference_image_url", "media_id", "updated_at"},
     "project": {"name", "description", "story", "thumbnail_url", "language", "status", "user_paygate_tier", "narrator_voice", "narrator_ref_audio", "material", "updated_at"},
     "video": {"title", "description", "display_order", "status", "orientation", "vertical_url", "horizontal_url",
               "thumbnail_url", "duration", "resolution", "youtube_id", "privacy", "tags", "updated_at"},
@@ -87,13 +87,15 @@ async def _delete(table: str, pk: str, pk_val: str) -> bool:
 
 # ─── Character ──────────────────────────────────────────────
 
-async def create_character(name: str, entity_type: str = "character", description: str = None, image_prompt: str = None, voice_description: str = None, reference_image_url: str = None, media_id: str = None) -> dict:
+async def create_character(name: str, entity_type: str = "character", description: str = None, image_prompt: str = None, voice_description: str = None, reference_image_url: str = None, media_id: str = None, slug: str = None) -> dict:
+    from agent.utils.slugify import slugify
     db = await get_db()
     cid, now = _uuid(), _now()
+    _slug = slug or slugify(name)
     async with _db_lock:
         await db.execute(
-            "INSERT INTO character (id,name,entity_type,description,image_prompt,voice_description,reference_image_url,media_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (cid, name, entity_type, description, image_prompt, voice_description, reference_image_url, media_id, now, now))
+            "INSERT INTO character (id,name,slug,entity_type,description,image_prompt,voice_description,reference_image_url,media_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (cid, name, _slug, entity_type, description, image_prompt, voice_description, reference_image_url, media_id, now, now))
         await db.commit()
     return await _get_with_db(db, "character", "id", cid)
 

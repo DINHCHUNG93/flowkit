@@ -1,7 +1,7 @@
 """FastAPI router for video review endpoints."""
 import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from agent.models.review import VideoReview, SceneReview
 from agent.services.video_reviewer import review_video, review_scene_video
@@ -18,6 +18,7 @@ async def review_video_endpoint(
     project_id: str = Query(..., description="Project ID"),
     mode: str = Query("light", description="Review mode: light (4fps) or deep (8fps)"),
     orientation: Optional[str] = Query(None, description="Orientation: VERTICAL or HORIZONTAL (auto-detected if omitted)"),
+    scene_ids: Optional[str] = Query(None, description="Comma-separated scene IDs to review (omit for all)"),
 ):
     """Review all scene videos in a video using Claude Vision frame analysis."""
     if mode not in ("light", "deep"):
@@ -38,9 +39,10 @@ async def review_video_endpoint(
     else:
         orientation = orientation.upper()
 
-    logger.info("Starting %s review for video %s (project %s, %s)", mode, vid, project_id, orientation)
+    parsed_scene_ids = [s.strip() for s in scene_ids.split(",") if s.strip()] if scene_ids else None
+    logger.info("Starting %s review for video %s (project %s, %s, scenes=%s)", mode, vid, project_id, orientation, len(parsed_scene_ids) if parsed_scene_ids else "all")
     try:
-        result = await review_video(vid, project_id, mode=mode, orientation=orientation)
+        result = await review_video(vid, project_id, mode=mode, orientation=orientation, scene_ids=parsed_scene_ids)
     except Exception as e:
         logger.exception("Review failed for video %s: %s", vid, e)
         raise HTTPException(500, f"Review failed: {e}")

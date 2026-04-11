@@ -13,6 +13,8 @@ def slugify(text: str) -> str:
         "A Day in My Life (Realistic)" → "a_day_in_my_life_realistic"
         "Pippip's Fish Market" → "pippips_fish_market"
     """
+    # Vietnamese Đ/đ (D-stroke) doesn't decompose via NFKD — map manually
+    text = text.replace("Đ", "D").replace("đ", "d")
     text = unicodedata.normalize("NFKD", text)
     text = text.encode("ascii", "ignore").decode("ascii")
     text = text.lower()

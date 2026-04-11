@@ -79,4 +79,4 @@ The `/gla:status` output is available in Claude Code's statusline at the bottom,
 GLA: ✓ext Operation Hormu 40sc img:40 vid:40 4K:26 ▶0/5
 ```
 
-**Note:** Default orientation for TTS narration is **HORIZONTAL** (landscape, 16:9). For VERTICAL (portrait, 9:16) projects, explicitly pass `orientation: "VERTICAL"` to `/gla:gen-tts`.
+**Note:** Default orientation for TTS narration is **HORIZONTAL** (landscape, 16:9). For VERTICAL (portrait, 9:16) projects, explicitly pass `orientation: "VERTICAL"` to `/gla:gen-narrator`.
