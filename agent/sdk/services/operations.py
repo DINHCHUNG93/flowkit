@@ -15,6 +15,22 @@ import ssl
 from typing import TYPE_CHECKING, Optional
 
 
+def _build_continuation_prompt(base_prompt: str) -> str:
+    """Build a transformation-focused prompt for CONTINUATION scene images.
+
+    When editing from a parent image, the default prompt just describes the
+    child scene statically — the edit API preserves the parent's composition.
+    This helper prepends transformation instructions so the AI actually
+    changes camera angle, location, and setup.
+    """
+    return (
+        f"Transform this image into a completely different moment. "
+        f"Move the camera to a new angle, position, and composition. "
+        f"Change the surrounding environment and visual setup. "
+        f"{base_prompt}"
+    )
+
+
 def _char_matches(c: dict, name_set: set) -> bool:
     """Check if a character matches any name in the set by slug OR display name."""
     slug = c.get("slug") or ""
@@ -166,6 +182,9 @@ class OperationService:
         project = await crud.get_project(scene.get("_project_id", "0"))
         aspect = "IMAGE_ASPECT_RATIO_PORTRAIT" if orientation == "VERTICAL" else "IMAGE_ASPECT_RATIO_LANDSCAPE"
         prompt = scene.get("image_prompt") or scene.get("prompt", "")
+        # CONTINUATION scenes: enrich prompt with transformation context
+        if scene.get("parent_scene_id") and not scene.get("image_prompt"):
+            prompt = _build_continuation_prompt(prompt)
         tier = project.get("user_paygate_tier", "PAYGATE_TIER_TWO") if project else "PAYGATE_TIER_TWO"
         pid = scene.get("_project_id", "0")
 
@@ -222,17 +241,21 @@ class OperationService:
 
         src = source_media_id
         orient_prefix = "vertical" if orientation == "VERTICAL" else "horizontal"
-        if not src:
-            src = scene.get(f"{orient_prefix}_image_media_id")
-        # Fall back to parent scene's image for INSERT scenes
+        # CONTINUATION scenes always edit from parent's image (that's the
+        # whole point of chaining).  Only non-chain scenes edit their own.
         if not src and scene.get("parent_scene_id"):
             parent = await crud.get_scene(scene["parent_scene_id"])
             if parent:
                 src = parent.get(f"{orient_prefix}_image_media_id")
         if not src:
+            src = scene.get(f"{orient_prefix}_image_media_id")
+        if not src:
             return {"error": "No source image to edit — generate a scene image first"}
 
         edit_prompt = scene.get("image_prompt") or scene.get("prompt", "")
+        # CONTINUATION scenes: enrich prompt with transformation context
+        if scene.get("parent_scene_id") and not scene.get("image_prompt"):
+            edit_prompt = _build_continuation_prompt(edit_prompt)
 
         # Resolve character reference media_ids for edit consistency
         char_media_ids = None
@@ -328,7 +351,13 @@ class OperationService:
 
     async def generate_scene_video_refs(self, scene: dict, orientation: str,
                                         request_id: str = "") -> dict:
-        """Generate video from reference images (r2v). Submits + polls."""
+        """Generate video from reference images (r2v). Submits + polls.
+
+        R2V uses any entity images (characters, visual_assets, locations) plus
+        scene images as IMAGE_USAGE_TYPE_ASSET references — not just character
+        face refs.  Collect all matching entity media_ids and optionally include
+        the scene's end_scene image.
+        """
         project = await crud.get_project(scene.get("_project_id", "0"))
         aspect = "VIDEO_ASPECT_RATIO_PORTRAIT" if orientation == "VERTICAL" else "VIDEO_ASPECT_RATIO_LANDSCAPE"
         tier = project.get("user_paygate_tier", "PAYGATE_TIER_TWO") if project else "PAYGATE_TIER_TWO"
@@ -350,29 +379,45 @@ class OperationService:
             except json.JSONDecodeError:
                 char_names_raw = []
 
-        if not char_names_raw or not pid:
-            return {"error": "No characters for r2v video generation"}
+        if not pid:
+            return {"error": "No project_id for r2v video generation"}
 
-        project_chars = await crud.get_project_characters(pid)
-        ref_ids = []
-        char_names_set = set(char_names_raw)
-        for c in project_chars:
-            if not _char_matches(c, char_names_set):
-                continue
-            mid = c.get("media_id")
-            if mid:
-                is_valid = await self._client.validate_media_id(mid)
-                if is_valid:
-                    ref_ids.append(mid)
-                    continue
-                logger.warning("Character %s media_id expired for r2v, re-uploading", c["name"])
-                new_mid = await _upload_character_image(self._client, c, pid)
-                if new_mid:
-                    await crud.update_character(c["id"], media_id=new_mid)
-                    ref_ids.append(new_mid)
+        # Collect up to 3 reference images (API max).  Priority order:
+        #   1. end_scene_media_id — chain continuity target (end frame)
+        #   2. visual_asset entities — primary objects (vehicles, props)
+        #   3. character entities — main character consistency
+        # Location entities are excluded — they add generic backgrounds
+        # that can re-introduce unwanted visual elements (e.g. buildings
+        # removed from a scene).
+        _R2V_MAX_REFS = 3
+        _R2V_ENTITY_PRIORITY = ("visual_asset", "character")
+        ref_ids: list[str] = []
+        seen: set[str] = set()
+
+        # 1. end_scene image (highest priority for chain scenes)
+        if end_id and end_id not in seen:
+            ref_ids.append(end_id)
+            seen.add(end_id)
+
+        # 2-3. Entities by priority: visual_asset first, then character
+        if char_names_raw and len(ref_ids) < _R2V_MAX_REFS:
+            project_entities = await crud.get_project_characters(pid)
+            char_names_set = set(char_names_raw)
+            for etype in _R2V_ENTITY_PRIORITY:
+                for c in project_entities:
+                    if len(ref_ids) >= _R2V_MAX_REFS:
+                        break
+                    if not _char_matches(c, char_names_set):
+                        continue
+                    if c.get("entity_type") != etype:
+                        continue
+                    mid = c.get("media_id")
+                    if mid and mid not in seen:
+                        ref_ids.append(mid)
+                        seen.add(mid)
 
         if not ref_ids:
-            return {"error": "No valid character media_ids for r2v"}
+            return {"error": "No valid reference media_ids for r2v"}
 
         # Check if already submitted (op_name saved from previous attempt)
         existing_op = None
@@ -701,11 +746,11 @@ class OperationService:
 # ------------------------------------------------------------------
 
 async def _build_video_prompt(base_prompt: str, scene: dict, project_id: str | None) -> str:
-    """Enhance video prompt with character voice context and audio instructions."""
+    """Enhance video prompt with Veo 3 audio instructions and negative prompt."""
     parts = [base_prompt.strip()]
 
     # Only append voice context when video_prompt contains dialogue (verb-based detection)
-    dialogue_verbs = ("says", "whispers", "shouts", "asks", "replies", "murmurs", "exclaims")
+    dialogue_verbs = ("says", "whispers", "shouts", "asks", "replies", "murmurs", "exclaims", "gasps", "laughs", "mutters")
     prompt_lower = base_prompt.lower()
     has_dialogue = any(verb in prompt_lower for verb in dialogue_verbs)
     if project_id and has_dialogue:
@@ -725,7 +770,7 @@ async def _build_video_prompt(base_prompt: str, scene: dict, project_id: str | N
             if voices:
                 parts.append("Character voices: " + ". ".join(voices) + ".")
 
-    # Check project-level allow_music flag
+    # Check project-level allow_music flag — Veo 3 Audio label format
     allow_music = False
     if project_id:
         project = await crud.get_project(project_id)
@@ -733,7 +778,14 @@ async def _build_video_prompt(base_prompt: str, scene: dict, project_id: str | N
             allow_music = True
 
     if not allow_music:
-        parts.append("Audio: No background music. No narration. No voiceover. No storytelling voice. Keep only natural sound effects and ambient sounds.")
+        # Only append if prompt doesn't already have Audio:/Music: labels
+        if "audio:" not in prompt_lower and "music:" not in prompt_lower:
+            parts.append("Audio: natural ambient sounds only, no background music, no narration, no voiceover.")
+
+    # Veo 3 negative prompt — always append unless already present
+    if "negative:" not in prompt_lower:
+        parts.append("Negative: subtitles, captions, watermark, text on screen, logo, blurry faces, distorted hands.")
+
     return " ".join(parts)
 
 

@@ -52,7 +52,7 @@ Google's filter sees **three inputs combined**: (1) ref images sent as `imageInp
    Bad:  "The Commander facing camera with arms crossed" (face visible → filter triggers)
    ```
 
-   `video_prompt` sub-clips must also keep camera behind — prevent character from turning face to camera in the 8s video.
+   `video_prompt` shots must also keep camera behind — prevent character from turning face to camera across all shots.
 
 6. **`narrator_text` CAN reference real titles/roles** — narration is audio-only and doesn't feed into image/video generation. This is where you name who they really are.
 
@@ -90,7 +90,7 @@ Note: `description` now specifies back view — this flows into `image_prompt` g
 ```
 prompt: "Real RAW photograph, shot on Canon EOS R5. View from behind The Commander standing at podium in situation room, his silhouette against a large screen showing regional map, advisors seated facing him, dramatic overhead lighting."
 
-video_prompt: "0-3s: Static shot from behind The Commander at podium, hand gesturing at screen. 3-6s: Slow push-in on his silhouette, shoulders tense. 6-8s: Cut to the screen — strategic map with markers appearing."
+video_prompt: "Medium shot of The Commander seen from behind at a podium, hand gesturing firmly at the large screen showing a regional map, advisors seated facing him. The camera holds steady. Dramatic overhead lighting casts deep shadows, cool blue glow from the screen illuminating his silhouette. Then cut to close-up of his broad shoulders tensing, slow push toward the screen as markers appear one by one. The camera slowly dollies in. Warm overhead rim light contrasts with the cool blue screen glow, dark room atmosphere.\n\nAudio: quiet hum of electronics, muffled breathing, air conditioning.\nSFX: map markers clicking into place, pen tapping on table.\nNegative: subtitles, watermark, text overlay, blurry faces."
 ```
 
 Camera stays behind. Viewers see the leader's power through body language, not face.
@@ -156,6 +156,38 @@ Then interleave by `display_order` for playback: 9,10,11,12,13,14,15. Each chain
 
 **Never chain scenes with different primary characters.** EDIT_IMAGE morphs the parent image — chaining Pursuer→Defector will morph Pursuer's face into Defector's scene, causing character drift.
 
+### CONTINUATION Image Prompt Rule
+
+CONTINUATION scenes use EDIT_IMAGE with the **parent's image as source**. The edit API preserves the source composition by default — if the child prompt just describes a static scene, the result looks nearly identical to the parent (same background, same angle, same setup). This wastes generation credits.
+
+**Rule: CONTINUATION scene `prompt` must describe the desired result with transformation emphasis — NOT describe what the previous scene looked like.**
+
+The system auto-prepends `"Transform this image into a completely different moment. Move the camera to a new angle, position, and composition. Change the surrounding environment and visual setup."` before the scene prompt. So write prompts that describe **what you want to see**, with explicit camera/angle/composition details.
+
+Write prompts that explicitly specify:
+- **Camera angle and position** (e.g., "wide shot from roadside, low angle, 30m from impact")
+- **New location within the space** (e.g., "exterior view of the vehicle", "from the cockpit looking out")
+- **Action and environment** that make this scene visually distinct from parent
+
+**Bad** (static, no camera/angle info — edit preserves parent composition):
+```
+Military Jeep crashing into drainage ditch, wheel detaching, dust cloud.
+Background shows JSA border zone.
+```
+
+**Good** (describes desired result with camera/composition):
+```
+Wide shot from roadside, low angle. Military Jeep hits drainage ditch at full speed,
+front-right wheel breaks free and flies off, vehicle lurches violently sideways.
+Dust cloud erupts from gravel. Camera positioned low, 30 meters from impact point.
+JSA blue buildings visible in far background, guard towers on both sides.
+```
+
+Key principles:
+1. **Describe what you want** — not what the previous scene was
+2. **Specify camera** — angle, distance, position (the most important factor for visual change)
+3. **Describe environment around the action** — not just the action itself
+
 ### Transition Prompt (Chain Scenes Only)
 
 When a scene has `end_scene_media_id` (start+end frame video generation), the AI generates an 8s video transitioning from **this scene's image → next scene's image**. The regular `video_prompt` only describes this scene's action — it doesn't describe the motion toward the next frame.
@@ -168,17 +200,46 @@ When a scene has `end_scene_media_id` (start+end frame video generation), the AI
 - Last scene in a chain (no child): `transition_prompt` = empty (video uses `video_prompt` as normal)
 - When `transition_prompt` is set AND `end_scene_media_id` exists, the video generator uses `transition_prompt` instead of `video_prompt`
 
-**Format:** Same 0-8s sub-clip format as `video_prompt`, but describes motion from THIS scene's frame to the NEXT scene's frame.
+**Format:** Natural prose describing the full motion trajectory from THIS scene's frame to the NEXT scene's frame. 100–150 words, camera movement as separate sentence, Audio/SFX/Negative at end.
 
 **Example:**
 ```
 Scene 4 (soldiers drinking in barracks):
-  video_prompt: "0-3s: Medium wide shot, soldiers around table, drinking. 3-5s: Cut to The Defector laughing, raising tin cup. 5-8s: The Defector's smile fades, eyes darting to the door."
-  transition_prompt: "0-3s: Medium shot, soldiers laughing around table, The Defector raises cup. 3-5s: The Defector puts down cup, glances toward barracks door. 5-8s: He rises abruptly, pushes chair back, moves toward the door into the cold night."
+  video_prompt: "Medium wide shot of soldiers gathered around a rough wooden table,
+    tin cups raised, warm candlelight flickering on their faces. The Defector laughs
+    and raises his cup, eyes bright with camaraderie. The camera slowly dollies in
+    toward his face. Then cut to close-up as his smile gradually fades, eyes darting
+    toward the barracks door, jaw tightening. Warm candlelight, golden tones deepening
+    to shadow.
+
+    Audio: muffled laughter, liquid sloshing in cups, crackling fire.
+    SFX: tin cups clinking, chair creaking.
+    Negative: subtitles, watermark, text overlay."
+
+  transition_prompt: "Medium shot of the Defector raising his cup among laughing
+    soldiers in the warm barracks interior. The camera holds steady. His expression
+    shifts — he puts down the cup, glances toward the barracks door, jaw tightening.
+    The camera slowly dollies in on his face, half in shadow. He rises abruptly,
+    pushes the chair back, and moves toward the door. The camera tracks him from
+    behind as warm golden candlelight gives way to cold blue moonlight spilling
+    through the doorway.
+
+    Audio: laughter fading, wind seeping through door cracks.
+    SFX: chair scraping wood floor, heavy boots on planks, door latch lifting.
+    Negative: subtitles, watermark, text overlay."
 
 Scene 5 (Defector bursting through door — CHILD of scene 4):
   start_image = scene 5's image (Defector at door)
-  video_prompt: "0-3s: The Defector bursts through barracks door, stumbling. 3-6s: He steadies against wall, breathing hard. 6-8s: Wide shot, Defector running into darkness."
+  video_prompt: "Medium shot of the Defector bursting through the barracks door,
+    stumbling into cold night air, warm light spilling from the doorway behind him.
+    The camera follows with handheld movement, slight shake. He steadies himself
+    against the wall, breathing hard, breath visible in the freezing cold. Then cut
+    to wide shot as he breaks into a run toward darkness, barracks shrinking behind
+    him. Cold blue moonlight, his silhouette against the snow.
+
+    Audio: cold wind howling, heavy breathing, distant dogs barking.
+    SFX: door slamming shut, boots crunching on frozen ground.
+    Negative: subtitles, watermark, text overlay."
 ```
 
 Scene 4's video uses `transition_prompt` because it has `end_scene_media_id` (scene 5's image). The prompt describes the journey FROM drinking → TO bursting through door.
@@ -267,36 +328,52 @@ Google Flow's AI filter rejects prompts with violent, aggressive, or graphic lan
 
 ---
 
-### Video Prompt Formula
+### Video Prompt Formula (Veo 3)
 
-```
-0-Ns: [Camera angle+movement], [Subject action]. [Optional: Character says "dialogue."]
-N-Ms: [Camera angle+movement], [Subject action]. [Optional: Character says "dialogue."]
-M-8s: [Camera angle+movement], [Subject action]. [Silence or atmosphere note.]
-```
+Write video prompts as **natural prose** — like briefing a film director. Veo 3 generates native audio (dialogue, SFX, ambient) from text.
+
+**5-component structure:** `[Camera/Shot] + [Subject] + [Action] + [Setting] + [Style & Audio]`
+
+**Critical rules:**
+- **100–150 words** (3–6 sentences)
+- **Camera movement as separate sentence** — never embed in action description
+- **Audio/SFX/Music labels** at end of prompt, separated
+- **Negative prompt** always appended: `Negative: subtitles, watermark, text overlay`
+- 2–3 shots max per 8s clip, use `then cut to` or timestamp format
+- Every prompt needs: lighting description + audio description
+
+**Dialogue rules:**
+- Use `:` format to avoid subtitles: `Character says: "line" (no subtitles)`
+- Keep short — must fit in ~8 seconds of speech
+- Describe voice: `in a deep gravelly voice`, `whispering`
+- Delivery verbs: `says`, `whispers`, `shouts`, `gasps`, `asks`, `replies`, `murmurs`
+- Silent segments are powerful — not every shot needs dialogue
 
 **Emotional arc pattern (map to 8s):**
 ```
-0-2s: Wide/establishing + crane or pan          (opening — set the stage)
-2-5s: Medium + tracking or push in              (rising — build engagement)
-5-7s: Close-up + static or slow motion          (peak — maximum emotion)
-7-8s: Pull back to wide or crane up             (release — breathing room)
+Opening  (0-2s): Wide/establishing — set the stage
+Rising   (2-5s): Medium + tracking or dolly in — build engagement
+Peak     (5-7s): Close-up — maximum emotion
+Release  (7-8s): Pull back to wide — breathing room
 ```
-
-**Dialogue rules:**
-- Max 10-15 words per character per 2-3s segment
-- Use delivery verbs: `says`, `whispers`, `shouts`, `gasps`, `asks`, `replies`, `mutters`
-- Silent segments are powerful — not every segment needs dialogue
-- Multi-character OK: `Luna asks "Ready?" Hero replies "Let's go."`
 
 **Example:**
 ```
-0-3s: Wide crane down shot, Luna emerges from rocket onto Candy Planet Surface. Luna gasps "Wow!"
-3-6s: Low angle tracking shot, Luna takes first steps on candy ground. Luna says "Everything is made of candy!"
-6-8s: Wide static shot, Luna small against vast landscape, cotton candy clouds. Silence, gentle wind.
+Wide shot of Luna emerging from a rocket onto a vast candy landscape,
+cotton candy clouds towering above, long candy-colored shadows stretching
+across the ground. The camera cranes down smoothly. Luna gasps: "Wow!"
+(no subtitles) Then cut to low angle tracking shot as she takes her first
+steps on candy ground, looking around in wonder. Luna says: "Everything
+is made of candy!" (no subtitles) Finally, wide static shot of Luna small
+against the vast landscape, golden backlight creating a rim light around her.
+Warm golden hour light, soft pastel tones.
+
+Audio: gentle warm breeze, faint magical shimmer.
+SFX: soft footsteps on crystallized sugar ground.
+Negative: subtitles, watermark, text overlay.
 ```
 
-See `gla:camera-guide.md` for angle/movement/lighting vocabulary.
+See `gla:camera-guide.md` for full Veo 3 camera/lighting/audio vocabulary and prompt template.
 
 ---
 
@@ -349,7 +426,7 @@ curl -X PATCH http://127.0.0.1:8100/api/scenes/<SID> \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Hero charges across the Castle bridge at dawn, sword raised, golden light catching the blade. Wide shot.",
-    "video_prompt": "0-3s: Wide tracking shot, Hero sprints across bridge toward camera. 3-6s: Medium shot, Hero raises Magic Sword, light bursts from blade. 6-8s: Close-up of Hero face, determined, Castle gate looming behind.",
+    "video_prompt": "Wide shot of Hero sprinting across the Castle bridge at dawn, golden light catching the blade of Magic Sword raised high. The camera tracks alongside with steady movement. Warm golden hour light, long shadows stretching across ancient stone. Then cut to medium shot as Hero raises Magic Sword overhead, light bursting from the blade, wind whipping his cloak. The camera slowly dollies in, shallow depth of field. Finally, close-up on Hero's determined face, Castle gate looming behind, warm side light.\n\nAudio: wind across stone bridge, distant morning birds.\nSFX: boots pounding on stone, sword ringing, cloak snapping.\nNegative: subtitles, watermark, text overlay.",
     "character_names": ["Hero", "Castle", "Magic Sword"],
     "narrator_text": "The hero charged forward, knowing there was no turning back."
   }'
