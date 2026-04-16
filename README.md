@@ -21,14 +21,30 @@ All outputs below were generated end-to-end by this system — from story concep
   <img src="docs/images/thumbnail_iran_israel.jpg" width="400" alt="Iran vs Israel conflict thumbnail" />
 </p>
 
-### AI-Generated Character Reference & Scene Image
+### AI-Generated Scene Images
+
+Each scene image is composed using character/location reference images as visual input — maintaining consistency across the entire video.
+
+<p align="center">
+  <img src="docs/images/scene_hormuz_patrol.jpg" width="400" alt="Iranian patrol boats in formation" />
+  <img src="docs/images/scene_hormuz_bridge.jpg" width="400" alt="US Navy commander on bridge" />
+</p>
+<p align="center">
+  <img src="docs/images/scene_hormuz_ciws.jpg" width="400" alt="CIWS engagement at sea" />
+  <img src="docs/images/scene_hormuz_sunset.jpg" width="400" alt="Warship sailing into sunset" />
+</p>
+<p align="center">
+  <img src="docs/images/scene_nk_defection.jpg" width="400" alt="North Korean defector scene" />
+  <img src="docs/images/scene_image_example.jpg" width="400" alt="Documentary interview scene" />
+</p>
+
+### Character Reference System
 
 <p align="center">
   <img src="docs/images/ref_character_example.jpg" width="300" alt="Character reference image — consistent across all scenes" />
-  <img src="docs/images/scene_image_example.jpg" width="500" alt="Scene image generated using character references" />
 </p>
 
-<sub>Left: Character reference image (generated once, used across all scenes for consistency). Right: Scene image composed using reference images as visual input.</sub>
+<sub>A character reference image is generated once and used across all scenes — the AI uses it as visual input to maintain consistent appearance throughout the video.</sub>
 
 ### Channel Branding (Auto-Generated Intro & Outro)
 
