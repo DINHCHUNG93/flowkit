@@ -21,9 +21,24 @@ All outputs below were generated end-to-end by this system — from story concep
   <img src="docs/images/thumbnail_iran_israel.jpg" width="400" alt="Iran vs Israel conflict thumbnail" />
 </p>
 
-### AI-Generated Scene Images
+### Visual Consistency Across Scenes
 
-Each scene image is composed using character/location reference images as visual input — maintaining consistency across the entire video.
+The reference image system keeps characters, vehicles, and locations consistent across an entire video. Below are frames from a single 25-scene project — same pilot, same F-15E, same story.
+
+<p align="center">
+  <img src="docs/images/scene_f15e_map.jpg" width="260" alt="Scene 1: Strategic map overview" />
+  <img src="docs/images/scene_f15e_pilot.jpg" width="260" alt="Scene 3: Pilot walks from F-15E" />
+  <img src="docs/images/scene_f15e_formation.jpg" width="260" alt="Scene 6: F-15E formation refueling" />
+</p>
+<p align="center">
+  <img src="docs/images/scene_f15e_hit.jpg" width="260" alt="Scene 10: F-15E hit at night" />
+  <img src="docs/images/scene_f15e_csar.jpg" width="260" alt="Scene 15: CSAR command center alert" />
+  <img src="docs/images/scene_f15e_survival.jpg" width="260" alt="Scene 20: Pilot surviving in mountains" />
+</p>
+
+<sub>6 frames from one project: strategic briefing → pilot departure → formation flight → aircraft hit → CSAR alert → pilot survival. Same character and aircraft maintained across all scenes via reference images.</sub>
+
+### More Scene Examples
 
 <p align="center">
   <img src="docs/images/scene_hormuz_patrol.jpg" width="400" alt="Iranian patrol boats in formation" />
@@ -37,14 +52,6 @@ Each scene image is composed using character/location reference images as visual
   <img src="docs/images/scene_nk_defection.jpg" width="400" alt="North Korean defector scene" />
   <img src="docs/images/scene_image_example.jpg" width="400" alt="Documentary interview scene" />
 </p>
-
-### Character Reference System
-
-<p align="center">
-  <img src="docs/images/ref_character_example.jpg" width="300" alt="Character reference image — consistent across all scenes" />
-</p>
-
-<sub>A character reference image is generated once and used across all scenes — the AI uses it as visual input to maintain consistent appearance throughout the video.</sub>
 
 ### Channel Branding (Auto-Generated Intro & Outro)
 
