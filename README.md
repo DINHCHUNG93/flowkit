@@ -1,3 +1,40 @@
+
+🚀 Ủng hộ nguồn mở Việt Nam: FlowKit – AI tự động tạo video YouTube từ A → Z bằng Google Flow
+
+Nếu bạn từng mất hàng giờ để tạo video trên Google Flow (viết prompt, render từng cảnh, ghép nhạc, làm thumbnail…), thì FlowKit chính là cách để xoá bỏ hoàn toàn workflow thủ công đó.
+
+Dự án mã nguồn mở này biến toàn bộ quy trình thành AI agent tự động:
+👉 từ ý tưởng → scene → video → voice → thumbnail → SEO YouTube.
+
+🔥 FlowKit làm được gì?
+
+* Tự viết kịch bản + storyboard
+* Sinh reference image để giữ nhân vật nhất quán
+* Render từng scene video (8s/cảnh)
+* Tự ghép video + voice cloning + subtitle
+* Tạo thumbnail + metadata chuẩn SEO
+
+👉 Bạn chỉ cần mô tả 1 lần → hệ thống chạy end-to-end.
+
+💡 Điểm ăn tiền
+
+* Reference Image System → giữ nhân vật, bối cảnh consistent 100%
+* Scene prompt chỉ cần mô tả hành động (không phải lặp lại mô tả dài)
+* 2 prompt/cảnh: ảnh tĩnh + chuyển động video
+
+👉 Rất hợp để build AI agent tự động hóa content
+
+🎬 Use case thực tế
+
+* Làm YouTube Shorts / TikTok hàng loạt
+* Video storytelling (phim ngắn, hoạt hình AI)
+* Content marketing tự động
+* Scale kênh YouTube không cần team production
+
+
+
+
+
 # FlowKit
 
 Standalone system to generate AI videos via Google Flow API. Uses a Chrome extension as browser bridge for authentication, reCAPTCHA solving, and API proxying.
